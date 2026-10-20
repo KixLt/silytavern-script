@@ -1,0 +1,244 @@
+.ppb-bar {
+  --ppb-bg: var(--SmartThemeBlurTintColor, rgba(23, 23, 26, 0.75));
+  --ppb-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+  --ppb-text: var(--SmartThemeBodyColor, #e8e8ea);
+  --ppb-muted: var(--SmartThemeQuoteColor, #9aa0a6);
+  --ppb-accent: var(--SmartThemeUnderlineColor, #8ab4f8);
+
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 3px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--ppb-text);
+  background: var(--ppb-bg);
+  border: 1px solid var(--ppb-border);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.ppb-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.ppb-bar button:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.18);
+}
+
+.ppb-bar button:focus-visible {
+  outline: 2px solid var(--ppb-accent);
+  outline-offset: -1px;
+}
+
+.ppb-bar button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ppb-left {
+  flex: 1 1 0;
+  justify-content: flex-start;
+}
+
+.ppb-center {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.ppb-right {
+  flex: 0 0 auto;
+  justify-content: center;
+  color: var(--ppb-accent);
+}
+
+.ppb-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.ppb-badge {
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  background: #d9534f;
+  border-radius: 9px;
+}
+
+.ppb-badge[hidden] {
+  display: none;
+}
+
+.ppb-busy .ppb-right .ppb-icon svg {
+  animation: ppb-spin 0.9s linear infinite;
+}
+
+@keyframes ppb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ppb-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 4000;
+  max-height: 48vh;
+  padding: 10px 12px;
+  overflow: auto;
+  color: var(--ppb-text);
+  background: var(--ppb-bg);
+  border: 1px solid var(--ppb-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(10px);
+}
+
+.ppb-popover[hidden] {
+  display: none;
+}
+
+.ppb-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ppb-meta {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ppb-muted);
+}
+
+.ppb-pre {
+  margin: 0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ppb-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ppb-diff {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ppb-diff li {
+  padding: 3px 0 3px 14px;
+  border-left: 2px solid transparent;
+  word-break: break-word;
+}
+
+.ppb-diff .ppb-add {
+  border-left-color: #4caf50;
+}
+
+.ppb-diff .ppb-change {
+  border-left-color: #f0ad4e;
+}
+
+.ppb-diff .ppb-remove {
+  border-left-color: #d9534f;
+  color: var(--ppb-muted);
+  text-decoration: line-through;
+}
+
+.ppb-tag {
+  margin-right: 6px;
+  font-size: 11px;
+  color: var(--ppb-muted);
+  text-decoration: none;
+}
+
+.ppb-tag::after {
+  content: '·';
+  margin-left: 6px;
+}
+
+.ppb-note {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ppb-muted);
+}
+
+.ppb-empty {
+  color: var(--ppb-muted);
+}
+
+.ppb-error {
+  color: #e57373;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ppb-loading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--ppb-muted);
+}
+
+.ppb-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--ppb-border);
+  border-top-color: var(--ppb-accent);
+  border-radius: 50%;
+  animation: ppb-spin 0.8s linear infinite;
+}
+
+.ppb-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.ppb-actions button {
+  padding: 5px 14px;
+  font: inherit;
+  color: inherit;
+  background: rgba(128, 128, 128, 0.18);
+  border: 1px solid var(--ppb-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ppb-actions .ppb-confirm {
+  color: #fff;
+  background: #3f7dd8;
+  border-color: #3f7dd8;
+}
+
+.ppb-actions button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

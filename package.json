@@ -1,0 +1,22 @@
+{
+  "name": "silytavern-script",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "酒馆助手脚本: 输入栏上方的剧情进度状态栏",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jsonrepair": "^3.13.0",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/jquery": "^3.5.33",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
+  }
+}
