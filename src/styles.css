@@ -1,10 +1,13 @@
-.ppb-bar {
+.ppb-bar,
+.ppb-popover {
   --ppb-bg: var(--SmartThemeBlurTintColor, rgba(23, 23, 26, 0.75));
   --ppb-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
   --ppb-text: var(--SmartThemeBodyColor, #e8e8ea);
   --ppb-muted: var(--SmartThemeQuoteColor, #9aa0a6);
   --ppb-accent: var(--SmartThemeUnderlineColor, #8ab4f8);
+}
 
+.ppb-bar {
   position: relative;
   display: flex;
   align-items: stretch;
@@ -19,6 +22,14 @@
   border: 1px solid var(--ppb-border);
   border-radius: 10px;
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ppb-bar,
+.ppb-bar *,
+.ppb-popover,
+.ppb-popover * {
+  box-sizing: border-box;
 }
 
 .ppb-bar button {
@@ -32,6 +43,8 @@
   border: 0;
   border-radius: 8px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
@@ -97,20 +110,22 @@
 }
 
 .ppb-popover {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  left: 0;
+  position: fixed;
   z-index: 4000;
+  max-width: calc(100vw - 16px);
   max-height: 48vh;
+  max-height: 48dvh;
   padding: 10px 12px;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   color: var(--ppb-text);
   background: var(--ppb-bg);
   border: 1px solid var(--ppb-border);
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .ppb-popover[hidden] {
@@ -241,4 +256,75 @@
 .ppb-actions button:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+/* 窄屏 / 手机 */
+@media (max-width: 600px) {
+  .ppb-bar {
+    margin-bottom: 4px;
+    padding: 2px;
+    border-radius: 8px;
+  }
+
+  .ppb-bar button {
+    min-height: 36px;
+    padding: 7px 8px;
+  }
+
+  .ppb-right {
+    min-width: 40px;
+  }
+
+  .ppb-head {
+    font-size: 12px;
+  }
+
+  .ppb-pre {
+    font-size: 11.5px;
+  }
+
+  .ppb-diff li {
+    padding: 4px 0 4px 12px;
+  }
+
+  .ppb-actions {
+    gap: 6px;
+  }
+
+  .ppb-actions button {
+    flex: 1 1 0;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 360px) {
+  .ppb-bar {
+    font-size: 11px;
+  }
+
+  .ppb-bar button {
+    gap: 4px;
+    padding: 6px 5px;
+  }
+
+  .ppb-badge {
+    min-width: 16px;
+    padding: 0 4px;
+  }
+}
+
+/* 触摸设备: 更宽松的可点面积, 放在最后以覆盖窄屏规则 */
+@media (pointer: coarse) {
+  .ppb-bar button {
+    min-height: 40px;
+  }
+
+  .ppb-right {
+    min-width: 44px;
+  }
+
+  .ppb-actions button {
+    flex: 1 1 0;
+    min-height: 42px;
+  }
 }

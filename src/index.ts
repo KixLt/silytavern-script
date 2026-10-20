@@ -22,6 +22,7 @@ let draft: Draft | null = null;
 let bar: Bar | null = null;
 let $style: JQuery<HTMLElement> | null = null;
 let refresh_timer: ReturnType<typeof setTimeout> | undefined;
+let mount_timer: ReturnType<typeof setTimeout> | undefined;
 
 function hasChat(): boolean {
   try {
@@ -154,16 +155,25 @@ function handleChatChanged(): void {
   scheduleRefresh();
 }
 
+/** 屏幕旋转、软键盘收起或移动端重排后, 输入区可能被重建 */
+function handleViewportChange(): void {
+  clearTimeout(mount_timer);
+  mount_timer = setTimeout(() => errorCatched(ensureMounted)(), 250);
+}
+
 function destroy(listeners: { stop(): void }[]): void {
   listeners.forEach(listener => listener.stop());
   clearTimeout(refresh_timer);
+  clearTimeout(mount_timer);
   draft = null;
   state = null;
   bar?.destroy();
   bar = null;
   $style?.remove();
   $style = null;
-  $(window).off('pagehide.ppb');
+  $(window).off('pagehide.ppbBar');
+  $(window.parent).off('resize.ppbBar');
+  $(window.parent).off('orientationchange.ppbBar');
   console.info('[剧情进度状态栏] 已卸载');
 }
 
@@ -181,7 +191,9 @@ function init(): void {
   ];
 
   ensureMounted();
-  $(window).on('pagehide.ppb', () => destroy(listeners));
+  $(window).on('pagehide.ppbBar', () => destroy(listeners));
+  $(window.parent).on('resize.ppbBar', handleViewportChange);
+  $(window.parent).on('orientationchange.ppbBar', handleViewportChange);
   errorCatched(refreshState)();
   console.info('[剧情进度状态栏] 已加载');
 }

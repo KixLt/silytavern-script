@@ -98,9 +98,10 @@ function diffHtml(lines: DiffLine[]): string {
 
 export function mountBar(handlers: BarHandlers): Bar {
   const $el = $(BAR_MARKUP);
-  const $popover = $el.find('.ppb-popover');
-  const $badge = $el.find('.ppb-badge');
   const page_document = $el[0].ownerDocument;
+  const page_window = page_document.defaultView ?? window;
+  const $popover = $el.find('.ppb-popover').appendTo(page_document.body);
+  const $badge = $el.find('.ppb-badge');
   let busy = false;
   let active_action: 'saved' | 'pending' | 'sync' | null = null;
 
@@ -115,7 +116,25 @@ export function mountBar(handlers: BarHandlers): Bar {
     $popover.prop('hidden', true).empty();
   };
 
+  const positionPopover = () => {
+    const rect = $el[0].getBoundingClientRect();
+    const gap = 8;
+    const viewport_width = page_window.innerWidth;
+    const viewport_height = page_window.innerHeight;
+    const width = Math.min(Math.max(rect.width, 240), viewport_width - 16);
+    const left = Math.min(Math.max(rect.left, 8), Math.max(8, viewport_width - width - 8));
+    const max_height = Math.max(120, Math.min(rect.top - gap * 2, viewport_height * 0.6));
+
+    $popover.css({
+      left: `${left}px`,
+      width: `${width}px`,
+      maxHeight: `${max_height}px`,
+      bottom: `${viewport_height - rect.top + gap}px`,
+    });
+  };
+
   const showPopover = (html: string) => {
+    positionPopover();
     $popover.html(html).prop('hidden', false);
   };
 
@@ -242,14 +261,28 @@ export function mountBar(handlers: BarHandlers): Bar {
 
   $(page_document).on('pointerdown.ppbBar', event => {
     const target = event.target as Node | null;
-    if (!target || $el[0].contains(target)) {
+    if (!target || $el[0].contains(target) || $popover[0].contains(target)) {
       return;
     }
     hidePopover();
   });
 
+  $(page_window).on('resize.ppbBar', () => {
+    if (!$popover.prop('hidden')) {
+      positionPopover();
+    }
+  });
+
   $(page_document).on('keydown.ppbBar', event => {
     if (event.key === 'Escape') {
+      hidePopover();
+    }
+  });
+
+  // 手机上点输入框时收起弹窗, 避免挡住聊天或与键盘叠加
+  $(page_document).on('focusin.ppbBar', 'textarea, input', event => {
+    const target = event.target as Element | null;
+    if (!target || !$(target).closest('.ppb-bar').length) {
       hidePopover();
     }
   });
@@ -267,6 +300,8 @@ export function mountBar(handlers: BarHandlers): Bar {
     },
     destroy() {
       $(page_document).off('.ppbBar');
+      $(page_window).off('.ppbBar');
+      $popover.remove();
       $el.remove();
     },
   };

@@ -1,6 +1,6 @@
 (function() {
   "use strict";
-  const css = ".ppb-bar {\r\n  --ppb-bg: var(--SmartThemeBlurTintColor, rgba(23, 23, 26, 0.75));\r\n  --ppb-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));\r\n  --ppb-text: var(--SmartThemeBodyColor, #e8e8ea);\r\n  --ppb-muted: var(--SmartThemeQuoteColor, #9aa0a6);\r\n  --ppb-accent: var(--SmartThemeUnderlineColor, #8ab4f8);\r\n\r\n  position: relative;\r\n  display: flex;\r\n  align-items: stretch;\r\n  gap: 2px;\r\n  margin: 0 0 6px;\r\n  padding: 3px;\r\n  font-family: inherit;\r\n  font-size: 12px;\r\n  line-height: 1.2;\r\n  color: var(--ppb-text);\r\n  background: var(--ppb-bg);\r\n  border: 1px solid var(--ppb-border);\r\n  border-radius: 10px;\r\n  backdrop-filter: blur(6px);\r\n}\r\n\r\n.ppb-bar button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 5px 10px;\r\n  font: inherit;\r\n  color: inherit;\r\n  background: transparent;\r\n  border: 0;\r\n  border-radius: 8px;\r\n  cursor: pointer;\r\n  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;\r\n}\r\n\r\n.ppb-bar button:hover:not(:disabled) {\r\n  background: rgba(128, 128, 128, 0.18);\r\n}\r\n\r\n.ppb-bar button:focus-visible {\r\n  outline: 2px solid var(--ppb-accent);\r\n  outline-offset: -1px;\r\n}\r\n\r\n.ppb-bar button:disabled {\r\n  cursor: default;\r\n  opacity: 0.55;\r\n}\r\n\r\n.ppb-left {\r\n  flex: 1 1 0;\r\n  justify-content: flex-start;\r\n}\r\n\r\n.ppb-center {\r\n  flex: 1 1 0;\r\n  justify-content: center;\r\n}\r\n\r\n.ppb-right {\r\n  flex: 0 0 auto;\r\n  justify-content: center;\r\n  color: var(--ppb-accent);\r\n}\r\n\r\n.ppb-icon {\r\n  display: inline-flex;\r\n  flex: none;\r\n}\r\n\r\n.ppb-badge {\r\n  min-width: 18px;\r\n  padding: 0 5px;\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  line-height: 16px;\r\n  text-align: center;\r\n  color: #fff;\r\n  background: #d9534f;\r\n  border-radius: 9px;\r\n}\r\n\r\n.ppb-badge[hidden] {\r\n  display: none;\r\n}\r\n\r\n.ppb-busy .ppb-right .ppb-icon svg {\r\n  animation: ppb-spin 0.9s linear infinite;\r\n}\r\n\r\n@keyframes ppb-spin {\r\n  to {\r\n    transform: rotate(360deg);\r\n  }\r\n}\r\n\r\n.ppb-popover {\r\n  position: absolute;\r\n  right: 0;\r\n  bottom: calc(100% + 8px);\r\n  left: 0;\r\n  z-index: 4000;\r\n  max-height: 48vh;\r\n  padding: 10px 12px;\r\n  overflow: auto;\r\n  color: var(--ppb-text);\r\n  background: var(--ppb-bg);\r\n  border: 1px solid var(--ppb-border);\r\n  border-radius: 12px;\r\n  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);\r\n  backdrop-filter: blur(10px);\r\n}\r\n\r\n.ppb-popover[hidden] {\r\n  display: none;\r\n}\r\n\r\n.ppb-head {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 4px 10px;\r\n  align-items: baseline;\r\n  justify-content: space-between;\r\n  margin-bottom: 8px;\r\n  font-size: 13px;\r\n  font-weight: 600;\r\n}\r\n\r\n.ppb-meta {\r\n  font-size: 11px;\r\n  font-weight: 400;\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-pre {\r\n  margin: 0;\r\n  font-family: ui-monospace, Consolas, monospace;\r\n  font-size: 12px;\r\n  line-height: 1.55;\r\n  color: var(--ppb-text);\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.ppb-diff {\r\n  margin: 0;\r\n  padding: 0;\r\n  list-style: none;\r\n}\r\n\r\n.ppb-diff li {\r\n  padding: 3px 0 3px 14px;\r\n  border-left: 2px solid transparent;\r\n  word-break: break-word;\r\n}\r\n\r\n.ppb-diff .ppb-add {\r\n  border-left-color: #4caf50;\r\n}\r\n\r\n.ppb-diff .ppb-change {\r\n  border-left-color: #f0ad4e;\r\n}\r\n\r\n.ppb-diff .ppb-remove {\r\n  border-left-color: #d9534f;\r\n  color: var(--ppb-muted);\r\n  text-decoration: line-through;\r\n}\r\n\r\n.ppb-tag {\r\n  margin-right: 6px;\r\n  font-size: 11px;\r\n  color: var(--ppb-muted);\r\n  text-decoration: none;\r\n}\r\n\r\n.ppb-tag::after {\r\n  content: '·';\r\n  margin-left: 6px;\r\n}\r\n\r\n.ppb-note {\r\n  margin-top: 10px;\r\n  font-size: 11px;\r\n  line-height: 1.5;\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-empty {\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-error {\r\n  color: #e57373;\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.ppb-loading {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-spinner {\r\n  width: 12px;\r\n  height: 12px;\r\n  border: 2px solid var(--ppb-border);\r\n  border-top-color: var(--ppb-accent);\r\n  border-radius: 50%;\r\n  animation: ppb-spin 0.8s linear infinite;\r\n}\r\n\r\n.ppb-actions {\r\n  display: flex;\r\n  gap: 8px;\r\n  justify-content: flex-end;\r\n  margin-top: 12px;\r\n}\r\n\r\n.ppb-actions button {\r\n  padding: 5px 14px;\r\n  font: inherit;\r\n  color: inherit;\r\n  background: rgba(128, 128, 128, 0.18);\r\n  border: 1px solid var(--ppb-border);\r\n  border-radius: 8px;\r\n  cursor: pointer;\r\n}\r\n\r\n.ppb-actions .ppb-confirm {\r\n  color: #fff;\r\n  background: #3f7dd8;\r\n  border-color: #3f7dd8;\r\n}\r\n\r\n.ppb-actions button:disabled {\r\n  cursor: default;\r\n  opacity: 0.6;\r\n}\r\n";
+  const css = ".ppb-bar,\r\n.ppb-popover {\r\n  --ppb-bg: var(--SmartThemeBlurTintColor, rgba(23, 23, 26, 0.75));\r\n  --ppb-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));\r\n  --ppb-text: var(--SmartThemeBodyColor, #e8e8ea);\r\n  --ppb-muted: var(--SmartThemeQuoteColor, #9aa0a6);\r\n  --ppb-accent: var(--SmartThemeUnderlineColor, #8ab4f8);\r\n}\r\n\r\n.ppb-bar {\r\n  position: relative;\r\n  display: flex;\r\n  align-items: stretch;\r\n  gap: 2px;\r\n  margin: 0 0 6px;\r\n  padding: 3px;\r\n  font-family: inherit;\r\n  font-size: 12px;\r\n  line-height: 1.2;\r\n  color: var(--ppb-text);\r\n  background: var(--ppb-bg);\r\n  border: 1px solid var(--ppb-border);\r\n  border-radius: 10px;\r\n  backdrop-filter: blur(6px);\r\n  -webkit-backdrop-filter: blur(6px);\r\n}\r\n\r\n.ppb-bar,\r\n.ppb-bar *,\r\n.ppb-popover,\r\n.ppb-popover * {\r\n  box-sizing: border-box;\r\n}\r\n\r\n.ppb-bar button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 5px 10px;\r\n  font: inherit;\r\n  color: inherit;\r\n  background: transparent;\r\n  border: 0;\r\n  border-radius: 8px;\r\n  cursor: pointer;\r\n  touch-action: manipulation;\r\n  -webkit-tap-highlight-color: transparent;\r\n  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;\r\n}\r\n\r\n.ppb-bar button:hover:not(:disabled) {\r\n  background: rgba(128, 128, 128, 0.18);\r\n}\r\n\r\n.ppb-bar button:focus-visible {\r\n  outline: 2px solid var(--ppb-accent);\r\n  outline-offset: -1px;\r\n}\r\n\r\n.ppb-bar button:disabled {\r\n  cursor: default;\r\n  opacity: 0.55;\r\n}\r\n\r\n.ppb-left {\r\n  flex: 1 1 0;\r\n  justify-content: flex-start;\r\n}\r\n\r\n.ppb-center {\r\n  flex: 1 1 0;\r\n  justify-content: center;\r\n}\r\n\r\n.ppb-right {\r\n  flex: 0 0 auto;\r\n  justify-content: center;\r\n  color: var(--ppb-accent);\r\n}\r\n\r\n.ppb-icon {\r\n  display: inline-flex;\r\n  flex: none;\r\n}\r\n\r\n.ppb-badge {\r\n  min-width: 18px;\r\n  padding: 0 5px;\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  line-height: 16px;\r\n  text-align: center;\r\n  color: #fff;\r\n  background: #d9534f;\r\n  border-radius: 9px;\r\n}\r\n\r\n.ppb-badge[hidden] {\r\n  display: none;\r\n}\r\n\r\n.ppb-busy .ppb-right .ppb-icon svg {\r\n  animation: ppb-spin 0.9s linear infinite;\r\n}\r\n\r\n@keyframes ppb-spin {\r\n  to {\r\n    transform: rotate(360deg);\r\n  }\r\n}\r\n\r\n.ppb-popover {\r\n  position: fixed;\r\n  z-index: 4000;\r\n  max-width: calc(100vw - 16px);\r\n  max-height: 48vh;\r\n  max-height: 48dvh;\r\n  padding: 10px 12px;\r\n  overflow: auto;\r\n  overscroll-behavior: contain;\r\n  -webkit-overflow-scrolling: touch;\r\n  color: var(--ppb-text);\r\n  background: var(--ppb-bg);\r\n  border: 1px solid var(--ppb-border);\r\n  border-radius: 12px;\r\n  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);\r\n  backdrop-filter: blur(10px);\r\n  -webkit-backdrop-filter: blur(10px);\r\n}\r\n\r\n.ppb-popover[hidden] {\r\n  display: none;\r\n}\r\n\r\n.ppb-head {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 4px 10px;\r\n  align-items: baseline;\r\n  justify-content: space-between;\r\n  margin-bottom: 8px;\r\n  font-size: 13px;\r\n  font-weight: 600;\r\n}\r\n\r\n.ppb-meta {\r\n  font-size: 11px;\r\n  font-weight: 400;\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-pre {\r\n  margin: 0;\r\n  font-family: ui-monospace, Consolas, monospace;\r\n  font-size: 12px;\r\n  line-height: 1.55;\r\n  color: var(--ppb-text);\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.ppb-diff {\r\n  margin: 0;\r\n  padding: 0;\r\n  list-style: none;\r\n}\r\n\r\n.ppb-diff li {\r\n  padding: 3px 0 3px 14px;\r\n  border-left: 2px solid transparent;\r\n  word-break: break-word;\r\n}\r\n\r\n.ppb-diff .ppb-add {\r\n  border-left-color: #4caf50;\r\n}\r\n\r\n.ppb-diff .ppb-change {\r\n  border-left-color: #f0ad4e;\r\n}\r\n\r\n.ppb-diff .ppb-remove {\r\n  border-left-color: #d9534f;\r\n  color: var(--ppb-muted);\r\n  text-decoration: line-through;\r\n}\r\n\r\n.ppb-tag {\r\n  margin-right: 6px;\r\n  font-size: 11px;\r\n  color: var(--ppb-muted);\r\n  text-decoration: none;\r\n}\r\n\r\n.ppb-tag::after {\r\n  content: '·';\r\n  margin-left: 6px;\r\n}\r\n\r\n.ppb-note {\r\n  margin-top: 10px;\r\n  font-size: 11px;\r\n  line-height: 1.5;\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-empty {\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-error {\r\n  color: #e57373;\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.ppb-loading {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  color: var(--ppb-muted);\r\n}\r\n\r\n.ppb-spinner {\r\n  width: 12px;\r\n  height: 12px;\r\n  border: 2px solid var(--ppb-border);\r\n  border-top-color: var(--ppb-accent);\r\n  border-radius: 50%;\r\n  animation: ppb-spin 0.8s linear infinite;\r\n}\r\n\r\n.ppb-actions {\r\n  display: flex;\r\n  gap: 8px;\r\n  justify-content: flex-end;\r\n  margin-top: 12px;\r\n}\r\n\r\n.ppb-actions button {\r\n  padding: 5px 14px;\r\n  font: inherit;\r\n  color: inherit;\r\n  background: rgba(128, 128, 128, 0.18);\r\n  border: 1px solid var(--ppb-border);\r\n  border-radius: 8px;\r\n  cursor: pointer;\r\n}\r\n\r\n.ppb-actions .ppb-confirm {\r\n  color: #fff;\r\n  background: #3f7dd8;\r\n  border-color: #3f7dd8;\r\n}\r\n\r\n.ppb-actions button:disabled {\r\n  cursor: default;\r\n  opacity: 0.6;\r\n}\r\n\r\n/* 窄屏 / 手机 */\r\n@media (max-width: 600px) {\r\n  .ppb-bar {\r\n    margin-bottom: 4px;\r\n    padding: 2px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .ppb-bar button {\r\n    min-height: 36px;\r\n    padding: 7px 8px;\r\n  }\r\n\r\n  .ppb-right {\r\n    min-width: 40px;\r\n  }\r\n\r\n  .ppb-head {\r\n    font-size: 12px;\r\n  }\r\n\r\n  .ppb-pre {\r\n    font-size: 11.5px;\r\n  }\r\n\r\n  .ppb-diff li {\r\n    padding: 4px 0 4px 12px;\r\n  }\r\n\r\n  .ppb-actions {\r\n    gap: 6px;\r\n  }\r\n\r\n  .ppb-actions button {\r\n    flex: 1 1 0;\r\n    min-height: 38px;\r\n  }\r\n}\r\n\r\n@media (max-width: 360px) {\r\n  .ppb-bar {\r\n    font-size: 11px;\r\n  }\r\n\r\n  .ppb-bar button {\r\n    gap: 4px;\r\n    padding: 6px 5px;\r\n  }\r\n\r\n  .ppb-badge {\r\n    min-width: 16px;\r\n    padding: 0 4px;\r\n  }\r\n}\r\n\r\n/* 触摸设备: 更宽松的可点面积, 放在最后以覆盖窄屏规则 */\r\n@media (pointer: coarse) {\r\n  .ppb-bar button {\r\n    min-height: 40px;\r\n  }\r\n\r\n  .ppb-right {\r\n    min-width: 44px;\r\n  }\r\n\r\n  .ppb-actions button {\r\n    flex: 1 1 0;\r\n    min-height: 42px;\r\n  }\r\n}\r\n";
   class JSONRepairError extends Error {
     constructor(message, position) {
       super(`${message} at position ${position}`);
@@ -12833,9 +12833,10 @@ ${last_error}
   }
   function mountBar(handlers) {
     const $el = $(BAR_MARKUP);
-    const $popover = $el.find(".ppb-popover");
-    const $badge = $el.find(".ppb-badge");
     const page_document = $el[0].ownerDocument;
+    const page_window = page_document.defaultView ?? window;
+    const $popover = $el.find(".ppb-popover").appendTo(page_document.body);
+    const $badge = $el.find(".ppb-badge");
     let busy = false;
     let active_action = null;
     const setBusy = (next) => {
@@ -12847,7 +12848,23 @@ ${last_error}
       active_action = null;
       $popover.prop("hidden", true).empty();
     };
+    const positionPopover = () => {
+      const rect = $el[0].getBoundingClientRect();
+      const gap = 8;
+      const viewport_width = page_window.innerWidth;
+      const viewport_height = page_window.innerHeight;
+      const width = Math.min(Math.max(rect.width, 240), viewport_width - 16);
+      const left = Math.min(Math.max(rect.left, 8), Math.max(8, viewport_width - width - 8));
+      const max_height = Math.max(120, Math.min(rect.top - gap * 2, viewport_height * 0.6));
+      $popover.css({
+        left: `${left}px`,
+        width: `${width}px`,
+        maxHeight: `${max_height}px`,
+        bottom: `${viewport_height - rect.top + gap}px`
+      });
+    };
     const showPopover = (html) => {
+      positionPopover();
       $popover.html(html).prop("hidden", false);
     };
     const openSaved = async () => {
@@ -12950,13 +12967,24 @@ ${last_error}
     $el.find('[data-action="sync"]').on("click", () => toggle("sync", openSyncConfirm));
     $(page_document).on("pointerdown.ppbBar", (event) => {
       const target = event.target;
-      if (!target || $el[0].contains(target)) {
+      if (!target || $el[0].contains(target) || $popover[0].contains(target)) {
         return;
       }
       hidePopover();
     });
+    $(page_window).on("resize.ppbBar", () => {
+      if (!$popover.prop("hidden")) {
+        positionPopover();
+      }
+    });
     $(page_document).on("keydown.ppbBar", (event) => {
       if (event.key === "Escape") {
+        hidePopover();
+      }
+    });
+    $(page_document).on("focusin.ppbBar", "textarea, input", (event) => {
+      const target = event.target;
+      if (!target || !$(target).closest(".ppb-bar").length) {
         hidePopover();
       }
     });
@@ -12973,6 +13001,8 @@ ${last_error}
       },
       destroy() {
         $(page_document).off(".ppbBar");
+        $(page_window).off(".ppbBar");
+        $popover.remove();
         $el.remove();
       }
     };
@@ -13051,6 +13081,7 @@ ${last_error}
   let bar = null;
   let $style = null;
   let refresh_timer;
+  let mount_timer;
   function hasChat() {
     try {
       return !!SillyTavern.getCurrentChatId();
@@ -13165,16 +13196,23 @@ ${last_error}
     ensureMounted();
     scheduleRefresh();
   }
+  function handleViewportChange() {
+    clearTimeout(mount_timer);
+    mount_timer = setTimeout(() => errorCatched(ensureMounted)(), 250);
+  }
   function destroy(listeners) {
     listeners.forEach((listener) => listener.stop());
     clearTimeout(refresh_timer);
+    clearTimeout(mount_timer);
     draft = null;
     state = null;
     bar?.destroy();
     bar = null;
     $style?.remove();
     $style = null;
-    $(window).off("pagehide.ppb");
+    $(window).off("pagehide.ppbBar");
+    $(window.parent).off("resize.ppbBar");
+    $(window.parent).off("orientationchange.ppbBar");
     console.info("[剧情进度状态栏] 已卸载");
   }
   function init() {
@@ -13189,7 +13227,9 @@ ${last_error}
       eventOn(tavern_events.CHAT_CHANGED, handleChatChanged)
     ];
     ensureMounted();
-    $(window).on("pagehide.ppb", () => destroy(listeners));
+    $(window).on("pagehide.ppbBar", () => destroy(listeners));
+    $(window.parent).on("resize.ppbBar", handleViewportChange);
+    $(window.parent).on("orientationchange.ppbBar", handleViewportChange);
     errorCatched(refreshState)();
     console.info("[剧情进度状态栏] 已加载");
   }
