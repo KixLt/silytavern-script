@@ -6,7 +6,8 @@
   "description": "酒馆助手脚本: 输入栏上方的剧情进度状态栏",
   "scripts": {
     "build": "vite build",
-    "dev": "vite build --watch",
+    "dev": "node scripts/dev.mjs",
+    "dev:build": "vite build --watch --mode development",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@types/jquery": "^3.5.33",
+    "socket.io": "^4.8.4",
     "typescript": "^5.9.3",
     "vite": "^7.1.9"
   }

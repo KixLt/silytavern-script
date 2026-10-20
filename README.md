@@ -14,24 +14,59 @@
 | 中 `待同步` | 弹出 popover, 把「上次同步之后的楼层」交给模型, 计算并显示**待写入的改动** (字段级 diff); 徽标显示待同步楼层数 |
 | 右 `⟳` | 先算待同步改动, 弹出确认框; 确认后才真正写入世界书并把已同步位置推进到本批最后一楼 |
 
-## 构建
+## 构建与发布
 
 ```bash
 pnpm install
+pnpm typecheck
 pnpm build     # 产物: dist/剧情进度状态栏/index.js
 ```
 
-开发时用 `pnpm dev`(即 `vite build --watch`) 监听改动, 配合酒馆助手的「实时监听」与 Live Server 即可热重载。
+发布时把 `dist/剧情进度状态栏/index.js` 的内容贴进酒馆助手脚本库的脚本内容即可.
+
+## 本地联调
+
+`pnpm dev` 在**同一个进程**里做三件事:
+
+| 服务 | 地址 | 作用 |
+| --- | --- | --- |
+| 静态文件服务 | `http://localhost:5500` | 托管仓库文件, 带 `Access-Control-Allow-Origin: *` 与 `no-store`, 供脚本 iframe 跨端口导入 |
+| Vite 监听构建 | — | 源码改动后重新打包到 `dist/剧情进度状态栏/` (development 模式, 带 sourcemap) |
+| socket.io | `http://localhost:6621` | 每次构建完成后广播 `script_iframe_updated`, 让酒馆助手重载脚本 |
+
+端口可用环境变量 `PPB_HTTP_PORT` / `PPB_SOCKET_PORT` 覆盖.
+
+### 一次性准备
+
+1. **启动酒馆**: 在 `SillyTavern` 目录执行 `node server.js`, 默认地址 `http://localhost:8000`.
+2. **安装酒馆助手**: 把 `JS-Slash-Runner` 克隆/解压到 `SillyTavern/public/scripts/extensions/third-party/JS-Slash-Runner`,
+   或在酒馆「扩展」页用 URL 安装 `https://github.com/N0VI028/JS-Slash-Runner`; 然后在扩展列表中启用「酒馆助手」.
+3. **建一个"加载器"脚本**: 酒馆助手 ‣ 脚本 ‣ 新建脚本, 脚本内容只写一行:
+   ```js
+   import 'http://localhost:5500/dist/剧情进度状态栏/index.js'
+   ```
+   脚本本身不存代码, 每次重载都会重新拉取最新构建产物, 所以不需要反复复制粘贴.
+4. **打开实时监听**: 酒馆助手 ‣ 设置 ‣ 开发 ‣ 实时监听, 勾选「允许监听」, 地址保持默认 `http://localhost:6621`.
+
+### 日常开发
+
+1. 终端执行 `pnpm dev`(窗口保持打开).
+2. 打开酒馆页面; 「实时监听」右侧的 WiFi 图标变绿说明已连上.
+3. 修改 `src/**`: 构建完成 → 脚本 iframe 自动重载 → 状态栏用新代码重建.
+4. 调试: DevTools ‣ Sources 中能看到 `src/index.ts` 等原始文件(development sourcemap), 可直接下断点;
+   脚本日志都带 `[剧情进度状态栏]` 前缀.
+5. 想强制重连时刷新酒馆页面即可.
+
+> `pnpm dev` 的产物带 sourcemap 且未压缩, 只用于联调; 发布前用 `pnpm build` 重新打包.
+>
+> 默认 socket 端口 `6621` 与官方 `tavern_helper_template` 相同, 同时只能开一个; 冲突时用 `PPB_SOCKET_PORT` 换端口并同步修改酒馆助手的监听地址.
 
 ## 在酒馆中使用
 
-把 `dist/剧情进度状态栏/index.js` 的内容贴进酒馆助手脚本库的脚本内容; 或者用实时监听:
+正式使用时, 把 `pnpm build` 产出的 `dist/剧情进度状态栏/index.js` 内容贴进酒馆助手脚本库的脚本内容;
+本地实时修改请用上一节的联调流程.
 
-```js
-import 'http://localhost:5500/dist/剧情进度状态栏/index.js'
-```
-
-脚本挂载在 `#send_form` 之前, 没有打开聊天时会自动隐藏。
+脚本挂载在 `#send_form` 之前, 没有打开聊天时会自动隐藏.
 
 ## 数据存放
 
