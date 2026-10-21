@@ -1,571 +1,571 @@
 (function() {
   "use strict";
-  const css = `/* 剧情进度状态栏 —— 视觉规范\r
- *\r
- * 北极星: 「不打扰的一行存档摘要 + 一页能扫读的档案卡」\r
- *  - 状态栏是常驻设施, 只有一个主角: 待同步的条数; 其余退成弱文字与图标。\r
- *  - 弹窗是要读的档案: 标题与主操作固定, 中间内容独立滚动。\r
- *\r
- * 变量分三层: 主题变量 (来自 SillyTavern) → 本组件语义色 → 具体规则。\r
- * 状态色都用 color-mix 与正文色调和, 深色/浅色主题下都能读; 每条声明先给兜底值。\r
- */\r
-\r
-.ppb-bar,\r
-.ppb-popover {\r
-  /* 主题变量 (SillyTavern 提供, 缺失时用兜底值)\r
-   * 注意: 不要用 SmartThemeQuoteColor 当弱化色 —— 很多主题里它是高饱和的引用色\r
-   * (当前主题是橙色), 会让标签看起来像强调。SmartThemeEmColor 才是主题自己的中性灰。\r
-   * SmartThemeBorderColor 往往是极暗的描边, 在深色主题里几乎不可见, 所以线条从正文色派生。\r
-   */\r
-  --ppb-text: var(--SmartThemeBodyColor, #dcdcd2);\r
-  --ppb-muted: var(--SmartThemeEmColor, #919191);\r
-  --ppb-accent: var(--SmartThemeUnderlineColor, #bce7cf);\r
-  --ppb-bg: var(--SmartThemeBlurTintColor, #171717);\r
-\r
-  /* 语义色: 与正文色调和, 保证任何主题下都有足够对比 (color-mix 在所有支持的浏览器里都可用) */\r
-  --ppb-line: color-mix(in srgb, var(--ppb-text) 14%, transparent);\r
-  --ppb-surface: color-mix(in srgb, var(--ppb-text) 8%, transparent);\r
-  --ppb-accent-soft: color-mix(in srgb, var(--ppb-accent) 22%, transparent);\r
-  --ppb-accent-line: color-mix(in srgb, var(--ppb-accent) 45%, transparent);\r
-  --ppb-add: color-mix(in srgb, #4fae6a 78%, var(--ppb-text));\r
-  --ppb-change: color-mix(in srgb, #c9962f 82%, var(--ppb-text));\r
-  --ppb-remove: color-mix(in srgb, #c26666 62%, var(--ppb-muted));\r
-\r
-  /* 排版与节奏 */\r
-  --ppb-radius: 10px;\r
-  --ppb-font: 13px;\r
-  --ppb-font-small: 12px;\r
-  --ppb-line-height: 1.62;\r
-}\r
-\r
-.ppb-bar,\r
-.ppb-bar *,\r
-.ppb-popover,\r
-.ppb-popover * {\r
-  box-sizing: border-box;\r
-}\r
-\r
-/* ── 状态栏 ───────────────────────────────────────────── */\r
-\r
-.ppb-bar {\r
-  position: relative;\r
-  display: flex;\r
-  align-items: center;\r
-  gap: 2px;\r
-  margin: 0 0 6px;\r
-  padding: 3px 4px;\r
-  font-family: inherit;\r
-  font-size: var(--ppb-font);\r
-  line-height: 1.3;\r
-  color: var(--ppb-text);\r
-  /* 半透明底 + 模糊: 不像一条厚重的横梁, 但仍然是一个固定的设施 */\r
-  background: color-mix(in srgb, var(--ppb-bg) 84%, transparent);\r
-  border: 1px solid var(--ppb-line);\r
-  border-radius: var(--ppb-radius);\r
-  backdrop-filter: blur(6px);\r
-  -webkit-backdrop-filter: blur(6px);\r
-}\r
-\r
-.ppb-bar button {\r
-  display: inline-flex;\r
-  align-items: center;\r
-  gap: 6px;\r
-  padding: 6px 8px;\r
-  font: inherit;\r
-  line-height: 1.3;\r
-  color: inherit;\r
-  background: transparent;\r
-  border: 0;\r
-  border-radius: 7px;\r
-  cursor: pointer;\r
-  touch-action: manipulation;\r
-  -webkit-tap-highlight-color: transparent;\r
-  transition: background-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;\r
-}\r
-\r
-.ppb-bar button:hover:not(:disabled) {\r
-  background: var(--ppb-surface);\r
-}\r
-\r
-.ppb-bar button:active:not(:disabled) {\r
-  background: var(--ppb-surface);\r
-  transform: translateY(0.5px);\r
-}\r
-\r
-.ppb-bar button:focus-visible {\r
-  outline: 2px solid var(--ppb-accent);\r
-  outline-offset: -2px;\r
-}\r
-\r
-.ppb-bar button:disabled {\r
-  cursor: default;\r
-  opacity: 0.5;\r
-}\r
-\r
-/* 按钮基色是 inherit, 想改单个按钮的颜色必须压过 .ppb-bar button 的优先级 */\r
-\r
-/* 左: 档案标签, 是这一行的身份, 不是重点 */\r
-.ppb-bar .ppb-saved {\r
-  color: var(--ppb-muted);\r
-  font-weight: 500;\r
-}\r
-\r
-.ppb-bar .ppb-saved:hover:not(:disabled) {\r
-  color: var(--ppb-text);\r
-}\r
-\r
-/* 中右: 待同步, 有内容时是唯一的主角 */\r
-.ppb-bar .ppb-pending {\r
-  margin-left: auto;\r
-  /* 药丸出现/消失都不移动右边的同步按钮 */\r
-  min-width: 96px;\r
-  justify-content: flex-end;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-bar .ppb-pending[data-count]:not([data-count='0']) {\r
-  color: var(--ppb-text);\r
-}\r
-\r
-/* 右: 同步动作, 纯图标 */\r
-.ppb-bar .ppb-sync {\r
-  flex: none;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-bar .ppb-sync:hover:not(:disabled) {\r
-  color: var(--ppb-accent);\r
-}\r
-\r
-.ppb-icon {\r
-  display: inline-flex;\r
-  flex: none;\r
-}\r
-\r
-.ppb-icon svg {\r
-  display: block;\r
-}\r
-\r
-.ppb-badge {\r
-  min-width: 20px;\r
-  padding: 0 6px;\r
-  font-size: 12px;\r
-  font-weight: 600;\r
-  font-variant-numeric: tabular-nums;\r
-  line-height: 17px;\r
-  text-align: center;\r
-  /* 实心药丸: 主题自己的强调色做底, 文字取主题底色 —— 任何主题下都是最大反差 */\r
-  color: var(--ppb-bg);\r
-  background: var(--ppb-accent);\r
-  border: 1px solid transparent;\r
-  border-radius: 9px;\r
-}\r
-\r
-/* 0 条时药丸不出现; 占位交给 .ppb-pending 的 min-width, 免得留下一块空洞 */\r
-.ppb-badge[hidden] {\r
-  display: none;\r
-}\r
-\r
-/* 忙碌: 只有被点的那个按钮转图标 */\r
-.ppb-bar[data-busy] .ppb-spin svg {\r
-  animation: ppb-spin 0.9s linear infinite;\r
-}\r
-\r
-@keyframes ppb-spin {\r
-  to {\r
-    transform: rotate(360deg);\r
-  }\r
-}\r
-\r
-@media (prefers-reduced-motion: reduce) {\r
-  .ppb-bar[data-busy] .ppb-spin svg {\r
-    animation: none;\r
-    opacity: 0.6;\r
-  }\r
-}\r
-\r
-/* ── 弹窗 (档案卡) ────────────────────────────────────── */\r
-\r
-.ppb-popover {\r
-  position: fixed;\r
-  font-size: var(--ppb-font);\r
-  line-height: var(--ppb-line-height);\r
-  z-index: 4000;\r
-  display: flex;\r
-  flex-direction: column;\r
-  overflow: hidden;\r
-  color: var(--ppb-text);\r
-  /* 档案卡要能读: 不透明, 不让背后的聊天气泡透上来 */\r
-  background: var(--ppb-bg);\r
-  border: 1px solid var(--ppb-line);\r
-  border-radius: 14px;\r
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);\r
-  backdrop-filter: blur(14px) saturate(1.1);\r
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);\r
-}\r
-\r
-.ppb-popover[hidden] {\r
-  display: none;\r
-}\r
-\r
-/* 标题区固定: 一直知道自己在看什么 */\r
-.ppb-head {\r
-  flex: none;\r
-  display: flex;\r
-  flex-wrap: wrap;\r
-  gap: 2px 12px;\r
-  align-items: baseline;\r
-  justify-content: space-between;\r
-  padding: 12px 14px 10px;\r
-  border-bottom: 1px solid var(--ppb-line);\r
-}\r
-\r
-.ppb-title {\r
-  font-size: 13.5px;\r
-  font-weight: 600;\r
-  line-height: 1.35;\r
-}\r
-\r
-.ppb-meta {\r
-  font-size: var(--ppb-font-small);\r
-  font-variant-numeric: tabular-nums;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-/* 内容区独立滚动, 主操作不被长内容顶出屏幕 */\r
-.ppb-body {\r
-  flex: 1 1 auto;\r
-  min-height: 0;\r
-  padding: 12px 14px 14px;\r
-  overflow-y: auto;\r
-  overscroll-behavior: contain;\r
-  -webkit-overflow-scrolling: touch;\r
-  scrollbar-width: thin;\r
-  scrollbar-color: var(--ppb-line) transparent;\r
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);\r
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);\r
-}\r
-\r
-/* 滚到底就不用再提示"下面还有"了 */\r
-.ppb-body.ppb-body-end {\r
-  mask-image: none;\r
-  -webkit-mask-image: none;\r
-}\r
-\r
-.ppb-body::-webkit-scrollbar {\r
-  width: 8px;\r
-}\r
-\r
-.ppb-body::-webkit-scrollbar-thumb {\r
-  background: color-mix(in srgb, var(--ppb-text) 12%, transparent);\r
-  border-radius: 4px;\r
-}\r
-\r
-/* 按字段分组: 同类信息放一起, 标签只写一次 */\r
-.ppb-group + .ppb-group {\r
-  margin-top: 14px;\r
-}\r
-\r
-.ppb-group-title {\r
-  display: flex;\r
-  gap: 8px;\r
-  align-items: center;\r
-  margin: 0 0 5px;\r
-  font-size: var(--ppb-font-small);\r
-  font-weight: 600;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-group-title::after {\r
-  content: '';\r
-  flex: 1 1 auto;\r
-  height: 1px;\r
-  background: var(--ppb-line);\r
-  opacity: 0.7;\r
-}\r
-\r
-.ppb-list {\r
-  margin: 0;\r
-  padding: 0;\r
-  list-style: none;\r
-}\r
-\r
-/* 符号列 + 内容列: 状态不只看颜色, 换行后文字有悬挂缩进 */\r
-.ppb-row {\r
-  display: flex;\r
-  gap: 8px;\r
-  padding: 2px 0;\r
-  font-size: var(--ppb-font);\r
-  line-height: var(--ppb-line-height);\r
-}\r
-\r
-.ppb-mark {\r
-  flex: 0 0 12px;\r
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;\r
-  font-size: 12px;\r
-  line-height: inherit;\r
-  text-align: center;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-text {\r
-  min-width: 0;\r
-  overflow-wrap: anywhere;\r
-}\r
-\r
-.ppb-row-add .ppb-mark {\r
-  color: var(--ppb-add);\r
-}\r
-\r
-.ppb-row-change .ppb-mark {\r
-  color: var(--ppb-change);\r
-}\r
-\r
-.ppb-row-remove .ppb-mark {\r
-  color: var(--ppb-remove);\r
-}\r
-\r
-.ppb-row-remove .ppb-text {\r
-  color: var(--ppb-text);\r
-  text-decoration: line-through;\r
-  text-decoration-color: var(--ppb-remove);\r
-  text-decoration-thickness: 1px;\r
-}\r
-\r
-/* 已保存视图里的"值"没有增删语义: 没有符号列, 文字从左边直接开始 */\r
-.ppb-row-value {\r
-  gap: 0;\r
-}\r
-\r
-.ppb-pre {\r
-  margin: 0;\r
-  font-family: inherit;\r
-  font-size: var(--ppb-font);\r
-  line-height: var(--ppb-line-height);\r
-  white-space: pre-wrap;\r
-  overflow-wrap: anywhere;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-/* 改动: 旧值退后当参照, 行内的箭头就是状态符号 (所以符号列不再重复一个箭头) */\r
-.ppb-from {\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-arrow {\r
-  margin: 0 6px;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-to {\r
-  color: var(--ppb-text);\r
-}\r
-\r
-.ppb-name {\r
-  font-weight: 600;\r
-}\r
-\r
-.ppb-name::after {\r
-  content: '：';\r
-  font-weight: 400;\r
-}\r
-\r
-/* 底部固定区: 说明与主操作都不随 diff 滚走 */\r
-.ppb-foot {\r
-  flex: none;\r
-  border-top: 1px solid var(--ppb-line);\r
-}\r
-\r
-.ppb-note {\r
-  margin: 0;\r
-  padding: 10px 14px 0;\r
-  font-size: var(--ppb-font);\r
-  line-height: 1.55;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-empty,\r
-.ppb-loading {\r
-  display: flex;\r
-  gap: 8px;\r
-  align-items: center;\r
-  font-size: var(--ppb-font);\r
-  line-height: 1.6;\r
-  color: var(--ppb-muted);\r
-}\r
-\r
-.ppb-error {\r
-  display: flex;\r
-  gap: 8px;\r
-  align-items: flex-start;\r
-  font-size: var(--ppb-font);\r
-  line-height: var(--ppb-line-height);\r
-  color: var(--ppb-text);\r
-}\r
-\r
-.ppb-error-icon {\r
-  margin-top: 2px;\r
-  color: var(--ppb-remove);\r
-}\r
-\r
-.ppb-error span:last-child {\r
-  min-width: 0;\r
-  white-space: pre-wrap;\r
-  overflow-wrap: anywhere;\r
-}\r
-\r
-.ppb-spinner {\r
-  flex: none;\r
-  width: 12px;\r
-  height: 12px;\r
-  border: 1.5px solid var(--ppb-line);\r
-  border-top-color: var(--ppb-accent);\r
-  border-radius: 50%;\r
-  animation: ppb-spin 0.8s linear infinite;\r
-}\r
-\r
-@media (prefers-reduced-motion: reduce) {\r
-  .ppb-spinner {\r
-    animation: none;\r
-    border-top-color: var(--ppb-accent-line);\r
-  }\r
-}\r
-\r
-/* 主操作固定底部 */\r
-.ppb-actions {\r
-  display: flex;\r
-  gap: 8px;\r
-  justify-content: flex-end;\r
-  padding: 10px 14px 12px;\r
-}\r
-\r
-.ppb-actions button {\r
-  min-height: 32px;\r
-  padding: 0 14px;\r
-  font: inherit;\r
-  font-size: var(--ppb-font);\r
-  color: var(--ppb-text);\r
-  background: transparent;\r
-  border: 1px solid transparent;\r
-  border-radius: 8px;\r
-  cursor: pointer;\r
-  transition: background-color 0.14s ease, opacity 0.14s ease;\r
-}\r
-\r
-.ppb-actions button:hover:not(:disabled) {\r
-  background: var(--ppb-surface);\r
-}\r
-\r
-.ppb-actions button:focus-visible {\r
-  outline: 2px solid var(--ppb-accent);\r
-  outline-offset: 1px;\r
-}\r
-\r
-.ppb-actions button:active:not(:disabled) {\r
-  background: var(--ppb-surface);\r
-}\r
-\r
-.ppb-actions .ppb-cancel {\r
-  flex: 0 0 auto;\r
-  color: var(--ppb-muted);\r
-  background: var(--ppb-surface);\r
-}\r
-\r
-.ppb-actions .ppb-cancel:hover:not(:disabled) {\r
-  color: var(--ppb-text);\r
-}\r
-\r
-.ppb-actions .ppb-confirm {\r
-  flex: 0 0 auto;\r
-  font-weight: 600;\r
-  color: var(--ppb-accent);\r
-  background: var(--ppb-accent-soft);\r
-  border-color: var(--ppb-accent-line);\r
-}\r
-\r
-.ppb-actions .ppb-confirm:hover:not(:disabled) {\r
-  background: color-mix(in srgb, var(--ppb-accent) 30%, transparent);\r
-}\r
-\r
-.ppb-actions button:disabled {\r
-  cursor: default;\r
-  opacity: 0.6;\r
-}\r
-\r
-/* 屏幕阅读器专用 */\r
-.ppb-sr {\r
-  position: absolute;\r
-  width: 1px;\r
-  height: 1px;\r
-  overflow: hidden;\r
-  clip-path: inset(50%);\r
-  white-space: nowrap;\r
-}\r
-\r
-/* ── 窄屏 / 手机 ──────────────────────────────────────── */\r
-\r
-@media (max-width: 600px) {\r
-  .ppb-bar {\r
-    margin-bottom: 4px;\r
-    padding: 2px 3px;\r
-  }\r
-\r
-  .ppb-bar button {\r
-    min-height: 38px;\r
-    padding: 6px;\r
-  }\r
-\r
-  .ppb-sync {\r
-    min-width: 40px;\r
-    justify-content: center;\r
-  }\r
-\r
-  .ppb-head {\r
-    padding: 11px 12px 9px;\r
-  }\r
-\r
-  .ppb-body {\r
-    padding: 10px 12px 12px;\r
-  }\r
-\r
-  .ppb-note {\r
-    padding: 9px 12px 0;\r
-  }\r
-\r
-  .ppb-actions {\r
-    padding: 9px 12px 10px;\r
-  }\r
-\r
-  .ppb-actions button {\r
-    min-height: 40px;\r
-  }\r
-}\r
-\r
-@media (max-width: 360px) {\r
-  .ppb-bar {\r
-    --ppb-font: 12.5px;\r
-  }\r
-\r
-  .ppb-bar button {\r
-    gap: 5px;\r
-    padding: 6px 5px;\r
-  }\r
-}\r
-\r
-/* 触摸设备: 更宽松的可点面积 */\r
-@media (pointer: coarse) {\r
-  .ppb-bar button {\r
-    min-height: 40px;\r
-  }\r
-\r
-  .ppb-sync {\r
-    min-width: 44px;\r
-  }\r
-\r
-  .ppb-actions button {\r
-    min-height: 42px;\r
-  }\r
-}\r
+  const css = `/* 剧情进度状态栏 —— 视觉规范
+ *
+ * 北极星: 「不打扰的一行存档摘要 + 一页能扫读的档案卡」
+ *  - 状态栏是常驻设施, 只有一个主角: 待同步的条数; 其余退成弱文字与图标。
+ *  - 弹窗是要读的档案: 标题与主操作固定, 中间内容独立滚动。
+ *
+ * 变量分三层: 主题变量 (来自 SillyTavern) → 本组件语义色 → 具体规则。
+ * 状态色都用 color-mix 与正文色调和, 深色/浅色主题下都能读; 每条声明先给兜底值。
+ */
+
+.ppb-bar,
+.ppb-popover {
+  /* 主题变量 (SillyTavern 提供, 缺失时用兜底值)
+   * 注意: 不要用 SmartThemeQuoteColor 当弱化色 —— 很多主题里它是高饱和的引用色
+   * (当前主题是橙色), 会让标签看起来像强调。SmartThemeEmColor 才是主题自己的中性灰。
+   * SmartThemeBorderColor 往往是极暗的描边, 在深色主题里几乎不可见, 所以线条从正文色派生。
+   */
+  --ppb-text: var(--SmartThemeBodyColor, #dcdcd2);
+  --ppb-muted: var(--SmartThemeEmColor, #919191);
+  --ppb-accent: var(--SmartThemeUnderlineColor, #bce7cf);
+  --ppb-bg: var(--SmartThemeBlurTintColor, #171717);
+
+  /* 语义色: 与正文色调和, 保证任何主题下都有足够对比 (color-mix 在所有支持的浏览器里都可用) */
+  --ppb-line: color-mix(in srgb, var(--ppb-text) 14%, transparent);
+  --ppb-surface: color-mix(in srgb, var(--ppb-text) 8%, transparent);
+  --ppb-accent-soft: color-mix(in srgb, var(--ppb-accent) 22%, transparent);
+  --ppb-accent-line: color-mix(in srgb, var(--ppb-accent) 45%, transparent);
+  --ppb-add: color-mix(in srgb, #4fae6a 78%, var(--ppb-text));
+  --ppb-change: color-mix(in srgb, #c9962f 82%, var(--ppb-text));
+  --ppb-remove: color-mix(in srgb, #c26666 62%, var(--ppb-muted));
+
+  /* 排版与节奏 */
+  --ppb-radius: 10px;
+  --ppb-font: 13px;
+  --ppb-font-small: 12px;
+  --ppb-line-height: 1.62;
+}
+
+.ppb-bar,
+.ppb-bar *,
+.ppb-popover,
+.ppb-popover * {
+  box-sizing: border-box;
+}
+
+/* ── 状态栏 ───────────────────────────────────────────── */
+
+.ppb-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 3px 4px;
+  font-family: inherit;
+  font-size: var(--ppb-font);
+  line-height: 1.3;
+  color: var(--ppb-text);
+  /* 半透明底 + 模糊: 不像一条厚重的横梁, 但仍然是一个固定的设施 */
+  background: color-mix(in srgb, var(--ppb-bg) 84%, transparent);
+  border: 1px solid var(--ppb-line);
+  border-radius: var(--ppb-radius);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ppb-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  line-height: 1.3;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+}
+
+.ppb-bar button:hover:not(:disabled) {
+  background: var(--ppb-surface);
+}
+
+.ppb-bar button:active:not(:disabled) {
+  background: var(--ppb-surface);
+  transform: translateY(0.5px);
+}
+
+.ppb-bar button:focus-visible {
+  outline: 2px solid var(--ppb-accent);
+  outline-offset: -2px;
+}
+
+.ppb-bar button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* 按钮基色是 inherit, 想改单个按钮的颜色必须压过 .ppb-bar button 的优先级 */
+
+/* 左: 档案标签, 是这一行的身份, 不是重点 */
+.ppb-bar .ppb-saved {
+  color: var(--ppb-muted);
+  font-weight: 500;
+}
+
+.ppb-bar .ppb-saved:hover:not(:disabled) {
+  color: var(--ppb-text);
+}
+
+/* 中右: 待同步, 有内容时是唯一的主角 */
+.ppb-bar .ppb-pending {
+  margin-left: auto;
+  /* 药丸出现/消失都不移动右边的同步按钮 */
+  min-width: 96px;
+  justify-content: flex-end;
+  color: var(--ppb-muted);
+}
+
+.ppb-bar .ppb-pending[data-count]:not([data-count='0']) {
+  color: var(--ppb-text);
+}
+
+/* 右: 同步动作, 纯图标 */
+.ppb-bar .ppb-sync {
+  flex: none;
+  color: var(--ppb-muted);
+}
+
+.ppb-bar .ppb-sync:hover:not(:disabled) {
+  color: var(--ppb-accent);
+}
+
+.ppb-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.ppb-icon svg {
+  display: block;
+}
+
+.ppb-badge {
+  min-width: 20px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 17px;
+  text-align: center;
+  /* 实心药丸: 主题自己的强调色做底, 文字取主题底色 —— 任何主题下都是最大反差 */
+  color: var(--ppb-bg);
+  background: var(--ppb-accent);
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+
+/* 0 条时药丸不出现; 占位交给 .ppb-pending 的 min-width, 免得留下一块空洞 */
+.ppb-badge[hidden] {
+  display: none;
+}
+
+/* 忙碌: 只有被点的那个按钮转图标 */
+.ppb-bar[data-busy] .ppb-spin svg {
+  animation: ppb-spin 0.9s linear infinite;
+}
+
+@keyframes ppb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ppb-bar[data-busy] .ppb-spin svg {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* ── 弹窗 (档案卡) ────────────────────────────────────── */
+
+.ppb-popover {
+  position: fixed;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--ppb-text);
+  /* 档案卡要能读: 不透明, 不让背后的聊天气泡透上来 */
+  background: var(--ppb-bg);
+  border: 1px solid var(--ppb-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.ppb-popover[hidden] {
+  display: none;
+}
+
+/* 标题区固定: 一直知道自己在看什么 */
+.ppb-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--ppb-line);
+}
+
+.ppb-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ppb-meta {
+  font-size: var(--ppb-font-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--ppb-muted);
+}
+
+/* 内容区独立滚动, 主操作不被长内容顶出屏幕 */
+.ppb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ppb-line) transparent;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
+}
+
+/* 滚到底就不用再提示"下面还有"了 */
+.ppb-body.ppb-body-end {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.ppb-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ppb-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ppb-text) 12%, transparent);
+  border-radius: 4px;
+}
+
+/* 按字段分组: 同类信息放一起, 标签只写一次 */
+.ppb-group + .ppb-group {
+  margin-top: 14px;
+}
+
+.ppb-group-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 5px;
+  font-size: var(--ppb-font-small);
+  font-weight: 600;
+  color: var(--ppb-muted);
+}
+
+.ppb-group-title::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--ppb-line);
+  opacity: 0.7;
+}
+
+.ppb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 符号列 + 内容列: 状态不只看颜色, 换行后文字有悬挂缩进 */
+.ppb-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
+}
+
+.ppb-mark {
+  flex: 0 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  line-height: inherit;
+  text-align: center;
+  color: var(--ppb-muted);
+}
+
+.ppb-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ppb-row-add .ppb-mark {
+  color: var(--ppb-add);
+}
+
+.ppb-row-change .ppb-mark {
+  color: var(--ppb-change);
+}
+
+.ppb-row-remove .ppb-mark {
+  color: var(--ppb-remove);
+}
+
+.ppb-row-remove .ppb-text {
+  color: var(--ppb-text);
+  text-decoration: line-through;
+  text-decoration-color: var(--ppb-remove);
+  text-decoration-thickness: 1px;
+}
+
+/* 已保存视图里的"值"没有增删语义: 没有符号列, 文字从左边直接开始 */
+.ppb-row-value {
+  gap: 0;
+}
+
+.ppb-pre {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ppb-muted);
+}
+
+/* 改动: 旧值退后当参照, 行内的箭头就是状态符号 (所以符号列不再重复一个箭头) */
+.ppb-from {
+  color: var(--ppb-muted);
+}
+
+.ppb-arrow {
+  margin: 0 6px;
+  color: var(--ppb-muted);
+}
+
+.ppb-to {
+  color: var(--ppb-text);
+}
+
+.ppb-name {
+  font-weight: 600;
+}
+
+.ppb-name::after {
+  content: '：';
+  font-weight: 400;
+}
+
+/* 底部固定区: 说明与主操作都不随 diff 滚走 */
+.ppb-foot {
+  flex: none;
+  border-top: 1px solid var(--ppb-line);
+}
+
+.ppb-note {
+  margin: 0;
+  padding: 10px 14px 0;
+  font-size: var(--ppb-font);
+  line-height: 1.55;
+  color: var(--ppb-muted);
+}
+
+.ppb-empty,
+.ppb-loading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--ppb-font);
+  line-height: 1.6;
+  color: var(--ppb-muted);
+}
+
+.ppb-error {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
+  color: var(--ppb-text);
+}
+
+.ppb-error-icon {
+  margin-top: 2px;
+  color: var(--ppb-remove);
+}
+
+.ppb-error span:last-child {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ppb-spinner {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--ppb-line);
+  border-top-color: var(--ppb-accent);
+  border-radius: 50%;
+  animation: ppb-spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ppb-spinner {
+    animation: none;
+    border-top-color: var(--ppb-accent-line);
+  }
+}
+
+/* 主操作固定底部 */
+.ppb-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 10px 14px 12px;
+}
+
+.ppb-actions button {
+  min-height: 32px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: var(--ppb-font);
+  color: var(--ppb-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.14s ease, opacity 0.14s ease;
+}
+
+.ppb-actions button:hover:not(:disabled) {
+  background: var(--ppb-surface);
+}
+
+.ppb-actions button:focus-visible {
+  outline: 2px solid var(--ppb-accent);
+  outline-offset: 1px;
+}
+
+.ppb-actions button:active:not(:disabled) {
+  background: var(--ppb-surface);
+}
+
+.ppb-actions .ppb-cancel {
+  flex: 0 0 auto;
+  color: var(--ppb-muted);
+  background: var(--ppb-surface);
+}
+
+.ppb-actions .ppb-cancel:hover:not(:disabled) {
+  color: var(--ppb-text);
+}
+
+.ppb-actions .ppb-confirm {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--ppb-accent);
+  background: var(--ppb-accent-soft);
+  border-color: var(--ppb-accent-line);
+}
+
+.ppb-actions .ppb-confirm:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ppb-accent) 30%, transparent);
+}
+
+.ppb-actions button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 屏幕阅读器专用 */
+.ppb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── 窄屏 / 手机 ──────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .ppb-bar {
+    margin-bottom: 4px;
+    padding: 2px 3px;
+  }
+
+  .ppb-bar button {
+    min-height: 38px;
+    padding: 6px;
+  }
+
+  .ppb-sync {
+    min-width: 40px;
+    justify-content: center;
+  }
+
+  .ppb-head {
+    padding: 11px 12px 9px;
+  }
+
+  .ppb-body {
+    padding: 10px 12px 12px;
+  }
+
+  .ppb-note {
+    padding: 9px 12px 0;
+  }
+
+  .ppb-actions {
+    padding: 9px 12px 10px;
+  }
+
+  .ppb-actions button {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 360px) {
+  .ppb-bar {
+    --ppb-font: 12.5px;
+  }
+
+  .ppb-bar button {
+    gap: 5px;
+    padding: 6px 5px;
+  }
+}
+
+/* 触摸设备: 更宽松的可点面积 */
+@media (pointer: coarse) {
+  .ppb-bar button {
+    min-height: 40px;
+  }
+
+  .ppb-sync {
+    min-width: 44px;
+  }
+
+  .ppb-actions button {
+    min-height: 42px;
+  }
+}
 `;
   class JSONRepairError extends Error {
     constructor(message, position) {
