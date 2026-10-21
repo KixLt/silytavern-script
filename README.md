@@ -28,12 +28,6 @@
 
 3. 保存并启用脚本。
 
-`@master` 跟随最新提交, 但 jsDelivr 对分支地址有缓存, 更新后可能延迟生效; 需要固定版本时把 `@master` 换成 commit 哈希, 例如 `@309f70f`。
-
-访问不了 jsDelivr 时, 也可以从 GitHub 下载 [`dist/build/index.js`](https://github.com/KixLt/silytavern-script/blob/master/dist/build/index.js) 并把整份内容粘贴进脚本.
-
-脚本挂载在 `#send_form` 之前, 没有打开聊天时会自动隐藏.
-
 ## 数据存放
 
 - 世界书: 优先用当前聊天绑定的世界书 → 角色卡主世界书 → 都没有时自动创建聊天世界书 `剧情进度`。
