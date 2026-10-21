@@ -5,7 +5,7 @@ node_modules/
 # 构建缓存
 .vite/
 *.tsbuildinfo
-dist
+design
 
 # 日志
 *.log
