@@ -2,7 +2,7 @@
 //
 //   pnpm dev
 //
-// - http://localhost:5500/dist/index.js  构建产物 (带 CORS, 供脚本 iframe 以 ESM 导入)
+// - http://localhost:5500/dist/dev/index.js  构建产物 (带 CORS, 供脚本 iframe 以 ESM 导入)
 // - http://localhost:6621                               socket.io 服务, 对应酒馆助手「设置 - 开发者 - 实时监听」
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -73,7 +73,7 @@ function notifyReload() {
 }
 
 http_server.listen(HTTP_PORT, () => {
-  console.info(`[联调] 构建产物: http://localhost:${HTTP_PORT}/dist/index.js`);
+  console.info(`[联调] 构建产物: http://localhost:${HTTP_PORT}/dist/dev/index.js`);
 });
 console.info(`[联调] 实时监听: http://localhost:${SOCKET_PORT}  (在 酒馆助手 ‣ 开发 ‣ 实时监听 中启用)`);
 

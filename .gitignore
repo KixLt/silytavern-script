@@ -30,4 +30,6 @@ playwright-report/
 test-results/
 *.tmp
 
-# dist/ 故意不忽略: 酒馆脚本通过 jsdelivr 直接读取构建产物
+# 发布产物 dist/build/ 故意不忽略: 酒馆脚本通过 jsdelivr 直接读取构建产物
+# 联调产物只存在于本地, 不要提交
+dist/dev/
