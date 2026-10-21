@@ -6,7 +6,9 @@ export default defineConfig(({ mode }) => ({
     outDir: mode === 'development' ? 'dist/dev' : 'dist/build',
     emptyOutDir: true,
     target: 'es2022',
-    minify: false,
+    // 联调产物保留原样方便断点, 发布产物用 Vite 内建的 esbuild 压缩
+    minify: mode === 'development' ? false : 'esbuild',
+    esbuild: { drop: ['debugger'] },
     // 联调 (mode=development) 时输出 sourcemap, 方便在浏览器里直接看 TS 源码、打断点
     sourcemap: mode === 'development',
     lib: {

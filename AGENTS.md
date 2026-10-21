@@ -7,8 +7,10 @@
 ```bash
 pnpm install
 pnpm typecheck
-pnpm build     # 产物: dist/build/index.js
+pnpm build     # 产物: dist/build/index.js (esbuild 压缩)
 ```
+
+`pnpm build` 用 Vite 内建的 esbuild 压缩 (约 224 kB), 联调构建不压缩, 便于断点调试。
 
 发布产物是 `dist/build/index.js`: 用户通过 jsDelivr 从 GitHub 直接导入构建产物 (见 README 的「在酒馆中使用」), 所以 `dist/build/` 被有意保留在版本库里, 不要加进 `.gitignore`。
 
