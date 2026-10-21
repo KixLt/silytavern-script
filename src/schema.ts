@@ -36,7 +36,16 @@ export function stringifyProgress(progress: Progress): string {
   return YAML.stringify(progress, { lineWidth: 0 });
 }
 
-export type DiffLine = { kind: 'change' | 'add' | 'remove'; label: string; text: string };
+export type DiffLine = {
+  kind: 'change' | 'add' | 'remove';
+  label: string;
+  text: string;
+  /** 仅 change: 新旧值, 供界面分辨"什么变了"; text 同时保留合并形式给纯文本场景 */
+  from?: string;
+  to?: string;
+  /** 仅人物: 角色名, 供界面把人物归成一组并加名字前缀 */
+  name?: string;
+};
 
 function diffList(label: string, before: string[], after: string[]): DiffLine[] {
   const lines: DiffLine[] = [];
@@ -65,7 +74,7 @@ export function diffProgress(before: Progress, after: Progress): DiffLine[] {
       continue;
     }
     if (from && to) {
-      lines.push({ kind: 'change', label: key, text: `${from} → ${to}` });
+      lines.push({ kind: 'change', label: key, text: `${from} → ${to}`, from, to });
     } else if (to) {
       lines.push({ kind: 'add', label: key, text: to });
     } else {
@@ -73,9 +82,7 @@ export function diffProgress(before: Progress, after: Progress): DiffLine[] {
     }
   }
 
-  lines.push(...diffList('关键事件', before.关键事件, after.关键事件));
-  lines.push(...diffList('未解伏笔', before.未解伏笔, after.未解伏笔));
-
+  // 人物放在长列表之前: 弹窗高度有限, 别把它埋到滚动区底部
   const names = new Set([...Object.keys(before.人物), ...Object.keys(after.人物)]);
   for (const name of names) {
     const from = before.人物[name];
@@ -84,13 +91,16 @@ export function diffProgress(before: Progress, after: Progress): DiffLine[] {
       continue;
     }
     if (from === undefined) {
-      lines.push({ kind: 'add', label: `人物 · ${name}`, text: to });
+      lines.push({ kind: 'add', label: '人物', name, text: to });
     } else if (to === undefined) {
-      lines.push({ kind: 'remove', label: `人物 · ${name}`, text: from });
+      lines.push({ kind: 'remove', label: '人物', name, text: from });
     } else {
-      lines.push({ kind: 'change', label: `人物 · ${name}`, text: `${from} → ${to}` });
+      lines.push({ kind: 'change', label: '人物', name, text: `${from} → ${to}`, from, to });
     }
   }
+
+  lines.push(...diffList('关键事件', before.关键事件, after.关键事件));
+  lines.push(...diffList('未解伏笔', before.未解伏笔, after.未解伏笔));
 
   return lines;
 }

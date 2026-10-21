@@ -1,28 +1,39 @@
+/* 剧情进度状态栏 —— 视觉规范
+ *
+ * 北极星: 「不打扰的一行存档摘要 + 一页能扫读的档案卡」
+ *  - 状态栏是常驻设施, 只有一个主角: 待同步的条数; 其余退成弱文字与图标。
+ *  - 弹窗是要读的档案: 标题与主操作固定, 中间内容独立滚动。
+ *
+ * 变量分三层: 主题变量 (来自 SillyTavern) → 本组件语义色 → 具体规则。
+ * 状态色都用 color-mix 与正文色调和, 深色/浅色主题下都能读; 每条声明先给兜底值。
+ */
+
 .ppb-bar,
 .ppb-popover {
-  --ppb-bg: var(--SmartThemeBlurTintColor, rgba(23, 23, 26, 0.75));
-  --ppb-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
-  --ppb-text: var(--SmartThemeBodyColor, #e8e8ea);
-  --ppb-muted: var(--SmartThemeQuoteColor, #9aa0a6);
-  --ppb-accent: var(--SmartThemeUnderlineColor, #8ab4f8);
-}
+  /* 主题变量 (SillyTavern 提供, 缺失时用兜底值)
+   * 注意: 不要用 SmartThemeQuoteColor 当弱化色 —— 很多主题里它是高饱和的引用色
+   * (当前主题是橙色), 会让标签看起来像强调。SmartThemeEmColor 才是主题自己的中性灰。
+   * SmartThemeBorderColor 往往是极暗的描边, 在深色主题里几乎不可见, 所以线条从正文色派生。
+   */
+  --ppb-text: var(--SmartThemeBodyColor, #dcdcd2);
+  --ppb-muted: var(--SmartThemeEmColor, #919191);
+  --ppb-accent: var(--SmartThemeUnderlineColor, #bce7cf);
+  --ppb-bg: var(--SmartThemeBlurTintColor, #171717);
 
-.ppb-bar {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  margin: 0 0 6px;
-  padding: 3px;
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--ppb-text);
-  background: var(--ppb-bg);
-  border: 1px solid var(--ppb-border);
-  border-radius: 10px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* 语义色: 与正文色调和, 保证任何主题下都有足够对比 (color-mix 在所有支持的浏览器里都可用) */
+  --ppb-line: color-mix(in srgb, var(--ppb-text) 14%, transparent);
+  --ppb-surface: color-mix(in srgb, var(--ppb-text) 8%, transparent);
+  --ppb-accent-soft: color-mix(in srgb, var(--ppb-accent) 22%, transparent);
+  --ppb-accent-line: color-mix(in srgb, var(--ppb-accent) 45%, transparent);
+  --ppb-add: color-mix(in srgb, #4fae6a 78%, var(--ppb-text));
+  --ppb-change: color-mix(in srgb, #c9962f 82%, var(--ppb-text));
+  --ppb-remove: color-mix(in srgb, #c26666 62%, var(--ppb-muted));
+
+  /* 排版与节奏 */
+  --ppb-radius: 10px;
+  --ppb-font: 13px;
+  --ppb-font-small: 12px;
+  --ppb-line-height: 1.62;
 }
 
 .ppb-bar,
@@ -32,49 +43,95 @@
   box-sizing: border-box;
 }
 
+/* ── 状态栏 ───────────────────────────────────────────── */
+
+.ppb-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 3px 4px;
+  font-family: inherit;
+  font-size: var(--ppb-font);
+  line-height: 1.3;
+  color: var(--ppb-text);
+  /* 半透明底 + 模糊: 不像一条厚重的横梁, 但仍然是一个固定的设施 */
+  background: color-mix(in srgb, var(--ppb-bg) 84%, transparent);
+  border: 1px solid var(--ppb-line);
+  border-radius: var(--ppb-radius);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 .ppb-bar button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 6px 8px;
   font: inherit;
+  line-height: 1.3;
   color: inherit;
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  transition: background-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
 }
 
 .ppb-bar button:hover:not(:disabled) {
-  background: rgba(128, 128, 128, 0.18);
+  background: var(--ppb-surface);
+}
+
+.ppb-bar button:active:not(:disabled) {
+  background: var(--ppb-surface);
+  transform: translateY(0.5px);
 }
 
 .ppb-bar button:focus-visible {
   outline: 2px solid var(--ppb-accent);
-  outline-offset: -1px;
+  outline-offset: -2px;
 }
 
 .ppb-bar button:disabled {
   cursor: default;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
-.ppb-left {
-  flex: 1 1 0;
-  justify-content: flex-start;
+/* 按钮基色是 inherit, 想改单个按钮的颜色必须压过 .ppb-bar button 的优先级 */
+
+/* 左: 档案标签, 是这一行的身份, 不是重点 */
+.ppb-bar .ppb-saved {
+  color: var(--ppb-muted);
+  font-weight: 500;
 }
 
-.ppb-center {
-  flex: 1 1 0;
-  justify-content: center;
+.ppb-bar .ppb-saved:hover:not(:disabled) {
+  color: var(--ppb-text);
 }
 
-.ppb-right {
-  flex: 0 0 auto;
-  justify-content: center;
+/* 中右: 待同步, 有内容时是唯一的主角 */
+.ppb-bar .ppb-pending {
+  margin-left: auto;
+  /* 药丸出现/消失都不移动右边的同步按钮 */
+  min-width: 96px;
+  justify-content: flex-end;
+  color: var(--ppb-muted);
+}
+
+.ppb-bar .ppb-pending[data-count]:not([data-count='0']) {
+  color: var(--ppb-text);
+}
+
+/* 右: 同步动作, 纯图标 */
+.ppb-bar .ppb-sync {
+  flex: none;
+  color: var(--ppb-muted);
+}
+
+.ppb-bar .ppb-sync:hover:not(:disabled) {
   color: var(--ppb-accent);
 }
 
@@ -83,23 +140,32 @@
   flex: none;
 }
 
+.ppb-icon svg {
+  display: block;
+}
+
 .ppb-badge {
-  min-width: 18px;
-  padding: 0 5px;
-  font-size: 11px;
+  min-width: 20px;
+  padding: 0 6px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  line-height: 17px;
   text-align: center;
-  color: #fff;
-  background: #d9534f;
+  /* 实心药丸: 主题自己的强调色做底, 文字取主题底色 —— 任何主题下都是最大反差 */
+  color: var(--ppb-bg);
+  background: var(--ppb-accent);
+  border: 1px solid transparent;
   border-radius: 9px;
 }
 
+/* 0 条时药丸不出现; 占位交给 .ppb-pending 的 min-width, 免得留下一块空洞 */
 .ppb-badge[hidden] {
   display: none;
 }
 
-.ppb-busy .ppb-right .ppb-icon svg {
+/* 忙碌: 只有被点的那个按钮转图标 */
+.ppb-bar[data-busy] .ppb-spin svg {
   animation: ppb-spin 0.9s linear infinite;
 }
 
@@ -109,148 +175,314 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ppb-bar[data-busy] .ppb-spin svg {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* ── 弹窗 (档案卡) ────────────────────────────────────── */
+
 .ppb-popover {
   position: fixed;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
   z-index: 4000;
-  max-width: calc(100vw - 16px);
-  max-height: 48vh;
-  max-height: 48dvh;
-  padding: 10px 12px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   color: var(--ppb-text);
+  /* 档案卡要能读: 不透明, 不让背后的聊天气泡透上来 */
   background: var(--ppb-bg);
-  border: 1px solid var(--ppb-border);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--ppb-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
 }
 
 .ppb-popover[hidden] {
   display: none;
 }
 
+/* 标题区固定: 一直知道自己在看什么 */
 .ppb-head {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: 2px 12px;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 13px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--ppb-line);
+}
+
+.ppb-title {
+  font-size: 13.5px;
   font-weight: 600;
+  line-height: 1.35;
 }
 
 .ppb-meta {
-  font-size: 11px;
-  font-weight: 400;
+  font-size: var(--ppb-font-small);
+  font-variant-numeric: tabular-nums;
   color: var(--ppb-muted);
 }
 
-.ppb-pre {
-  margin: 0;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--ppb-text);
-  white-space: pre-wrap;
-  word-break: break-word;
+/* 内容区独立滚动, 主操作不被长内容顶出屏幕 */
+.ppb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ppb-line) transparent;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
 }
 
-.ppb-diff {
+/* 滚到底就不用再提示"下面还有"了 */
+.ppb-body.ppb-body-end {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.ppb-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ppb-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ppb-text) 12%, transparent);
+  border-radius: 4px;
+}
+
+/* 按字段分组: 同类信息放一起, 标签只写一次 */
+.ppb-group + .ppb-group {
+  margin-top: 14px;
+}
+
+.ppb-group-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 5px;
+  font-size: var(--ppb-font-small);
+  font-weight: 600;
+  color: var(--ppb-muted);
+}
+
+.ppb-group-title::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--ppb-line);
+  opacity: 0.7;
+}
+
+.ppb-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.ppb-diff li {
-  padding: 3px 0 3px 14px;
-  border-left: 2px solid transparent;
-  word-break: break-word;
+/* 符号列 + 内容列: 状态不只看颜色, 换行后文字有悬挂缩进 */
+.ppb-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
 }
 
-.ppb-diff .ppb-add {
-  border-left-color: #4caf50;
-}
-
-.ppb-diff .ppb-change {
-  border-left-color: #f0ad4e;
-}
-
-.ppb-diff .ppb-remove {
-  border-left-color: #d9534f;
+.ppb-mark {
+  flex: 0 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  line-height: inherit;
+  text-align: center;
   color: var(--ppb-muted);
+}
+
+.ppb-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ppb-row-add .ppb-mark {
+  color: var(--ppb-add);
+}
+
+.ppb-row-change .ppb-mark {
+  color: var(--ppb-change);
+}
+
+.ppb-row-remove .ppb-mark {
+  color: var(--ppb-remove);
+}
+
+.ppb-row-remove .ppb-text {
+  color: var(--ppb-text);
   text-decoration: line-through;
+  text-decoration-color: var(--ppb-remove);
+  text-decoration-thickness: 1px;
 }
 
-.ppb-tag {
-  margin-right: 6px;
-  font-size: 11px;
+/* 已保存视图里的"值"没有增删语义: 没有符号列, 文字从左边直接开始 */
+.ppb-row-value {
+  gap: 0;
+}
+
+.ppb-pre {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   color: var(--ppb-muted);
-  text-decoration: none;
 }
 
-.ppb-tag::after {
-  content: '·';
-  margin-left: 6px;
+/* 改动: 旧值退后当参照, 行内的箭头就是状态符号 (所以符号列不再重复一个箭头) */
+.ppb-from {
+  color: var(--ppb-muted);
+}
+
+.ppb-arrow {
+  margin: 0 6px;
+  color: var(--ppb-muted);
+}
+
+.ppb-to {
+  color: var(--ppb-text);
+}
+
+.ppb-name {
+  font-weight: 600;
+}
+
+.ppb-name::after {
+  content: '：';
+  font-weight: 400;
+}
+
+/* 底部固定区: 说明与主操作都不随 diff 滚走 */
+.ppb-foot {
+  flex: none;
+  border-top: 1px solid var(--ppb-line);
 }
 
 .ppb-note {
-  margin-top: 10px;
-  font-size: 11px;
-  line-height: 1.5;
+  margin: 0;
+  padding: 10px 14px 0;
+  font-size: var(--ppb-font);
+  line-height: 1.55;
   color: var(--ppb-muted);
 }
 
-.ppb-empty {
-  color: var(--ppb-muted);
-}
-
-.ppb-error {
-  color: #e57373;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
+.ppb-empty,
 .ppb-loading {
   display: flex;
   gap: 8px;
   align-items: center;
+  font-size: var(--ppb-font);
+  line-height: 1.6;
   color: var(--ppb-muted);
 }
 
+.ppb-error {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: var(--ppb-font);
+  line-height: var(--ppb-line-height);
+  color: var(--ppb-text);
+}
+
+.ppb-error-icon {
+  margin-top: 2px;
+  color: var(--ppb-remove);
+}
+
+.ppb-error span:last-child {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ppb-spinner {
+  flex: none;
   width: 12px;
   height: 12px;
-  border: 2px solid var(--ppb-border);
+  border: 1.5px solid var(--ppb-line);
   border-top-color: var(--ppb-accent);
   border-radius: 50%;
   animation: ppb-spin 0.8s linear infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ppb-spinner {
+    animation: none;
+    border-top-color: var(--ppb-accent-line);
+  }
+}
+
+/* 主操作固定底部 */
 .ppb-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 12px;
+  padding: 10px 14px 12px;
 }
 
 .ppb-actions button {
-  padding: 5px 14px;
+  min-height: 32px;
+  padding: 0 14px;
   font: inherit;
-  color: inherit;
-  background: rgba(128, 128, 128, 0.18);
-  border: 1px solid var(--ppb-border);
+  font-size: var(--ppb-font);
+  color: var(--ppb-text);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
+  transition: background-color 0.14s ease, opacity 0.14s ease;
+}
+
+.ppb-actions button:hover:not(:disabled) {
+  background: var(--ppb-surface);
+}
+
+.ppb-actions button:focus-visible {
+  outline: 2px solid var(--ppb-accent);
+  outline-offset: 1px;
+}
+
+.ppb-actions button:active:not(:disabled) {
+  background: var(--ppb-surface);
+}
+
+.ppb-actions .ppb-cancel {
+  flex: 0 0 auto;
+  color: var(--ppb-muted);
+  background: var(--ppb-surface);
+}
+
+.ppb-actions .ppb-cancel:hover:not(:disabled) {
+  color: var(--ppb-text);
 }
 
 .ppb-actions .ppb-confirm {
-  color: #fff;
-  background: #3f7dd8;
-  border-color: #3f7dd8;
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--ppb-accent);
+  background: var(--ppb-accent-soft);
+  border-color: var(--ppb-accent-line);
+}
+
+.ppb-actions .ppb-confirm:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ppb-accent) 30%, transparent);
 }
 
 .ppb-actions button:disabled {
@@ -258,73 +490,77 @@
   opacity: 0.6;
 }
 
-/* 窄屏 / 手机 */
+/* 屏幕阅读器专用 */
+.ppb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── 窄屏 / 手机 ──────────────────────────────────────── */
+
 @media (max-width: 600px) {
   .ppb-bar {
     margin-bottom: 4px;
-    padding: 2px;
-    border-radius: 8px;
+    padding: 2px 3px;
   }
 
   .ppb-bar button {
-    min-height: 36px;
-    padding: 7px 8px;
+    min-height: 38px;
+    padding: 6px;
   }
 
-  .ppb-right {
+  .ppb-sync {
     min-width: 40px;
+    justify-content: center;
   }
 
   .ppb-head {
-    font-size: 12px;
+    padding: 11px 12px 9px;
   }
 
-  .ppb-pre {
-    font-size: 11.5px;
+  .ppb-body {
+    padding: 10px 12px 12px;
   }
 
-  .ppb-diff li {
-    padding: 4px 0 4px 12px;
+  .ppb-note {
+    padding: 9px 12px 0;
   }
 
   .ppb-actions {
-    gap: 6px;
+    padding: 9px 12px 10px;
   }
 
   .ppb-actions button {
-    flex: 1 1 0;
-    min-height: 38px;
+    min-height: 40px;
   }
 }
 
 @media (max-width: 360px) {
   .ppb-bar {
-    font-size: 11px;
+    --ppb-font: 12.5px;
   }
 
   .ppb-bar button {
-    gap: 4px;
+    gap: 5px;
     padding: 6px 5px;
-  }
-
-  .ppb-badge {
-    min-width: 16px;
-    padding: 0 4px;
   }
 }
 
-/* 触摸设备: 更宽松的可点面积, 放在最后以覆盖窄屏规则 */
+/* 触摸设备: 更宽松的可点面积 */
 @media (pointer: coarse) {
   .ppb-bar button {
     min-height: 40px;
   }
 
-  .ppb-right {
+  .ppb-sync {
     min-width: 44px;
   }
 
   .ppb-actions button {
-    flex: 1 1 0;
     min-height: 42px;
   }
 }
