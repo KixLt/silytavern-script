@@ -7,7 +7,7 @@
 //
 // 刻意不写 `id`: 酒馆助手导入时会自动生成, 这样同一份源码永远产出同一份 JSON,
 // CI 才能靠 `git status` 判断产物是否真的变化, 不会每次构建都刷一次提交.
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,7 +22,9 @@ const SCRIPT_INFO = [
     '以及耗时与首字延迟。数据来自主进程 LLM API 日志与楼层 extra.prompt_cache。',
 ].join(' ');
 
-const content = await readFile(SOURCE_FILE, 'utf8');
+// 统一按 LF 出产: Windows 上源码是 CRLF, 不归一化的话不同平台构建出的产物不一致,
+// CI 会认为产物变了并反复提交.
+const content = (await readFile(SOURCE_FILE, 'utf8')).replace(/\r\n/g, '\n');
 
 const script = {
     type: 'script',
@@ -49,7 +51,7 @@ await writeFile(json_path, `${JSON.stringify(script, null, 2)}\n`, 'utf8');
 
 // 2) 原始脚本 (可当加载器脚本直接 import, 或供 jsDelivr 读取源码)
 const js_path = path.join(OUT_DIR, 'tt-ai-monitor.js');
-await copyFile(SOURCE_FILE, js_path);
+await writeFile(js_path, content, 'utf8');
 
 console.log(`[ai-monitor] ${path.relative(REPO_ROOT, json_path)}`);
 console.log(`[ai-monitor] ${path.relative(REPO_ROOT, js_path)}`);
