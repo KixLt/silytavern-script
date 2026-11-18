@@ -32,9 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # 版本由 package.json 的 packageManager 字段决定, 这里不再写 version (两者同时存在会报错)
       - uses: pnpm/action-setup@v6
-        with:
-          version: 12
 
       - uses: actions/setup-node@v7
         with:
