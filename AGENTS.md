@@ -1,32 +1,40 @@
 # 开发指南
 
-本仓库是酒馆助手 (JS-Slash-Runner) 脚本「剧情进度状态栏」的源码。功能说明见 [README.md](README.md), 本文件只记录开发相关约定。
+本仓库是**酒馆助手 (JS-Slash-Runner) 脚本的 monorepo**, 用 pnpm workspace 管理多个脚本; 一次提交由 CI 同时打包出所有产物。
+
+| 包 | 脚本 | 产物 |
+| --- | --- | --- |
+| `packages/plot-progress-bar` | 剧情进度状态栏 | `dist/build/index.js` |
+| `packages/ai-monitor` | TT \| AI 请求监控 | `dist/ai-monitor/TT-AI-Monitor.json` (+ 同名 `.js`) |
+
+本文件记录开发约定; 各脚本的功能说明见各自的 `packages/*/README.md`, 仓库总览见 [README.md](README.md)。
 
 ## 构建与发布
 
 ```bash
 pnpm install
-pnpm typecheck
-pnpm build     # 产物: dist/build/index.js (esbuild 压缩)
+pnpm typecheck   # pnpm -r: 每个包各自 typecheck
+pnpm build       # pnpm -r: 每个包各自 build, 产物都写到仓库根 dist/
 ```
 
-`pnpm build` 用 Vite 内建的 esbuild 压缩 (约 224 kB), 联调构建不压缩, 便于断点调试。
+- `plot-progress-bar` 用 Vite; `build` 走 esbuild 压缩 (约 224 kB), `dev:build` 不压缩便于断点。
+- `ai-monitor` 不经过打包器, 由 `packages/ai-monitor/scripts/build.mjs` 把 `src/tt-ai-monitor.js` 包成酒馆助手脚本 JSON。它**不写 `id`**(导入时由酒馆助手生成), 所以同一份源码永远产出同一份 JSON, CI 才能靠 `git status` 判断产物是否真的变化。
 
-发布产物是 `dist/build/index.js`: 用户通过 jsDelivr 从 GitHub 直接导入构建产物 (见 README 的「在酒馆中使用」), 所以 `dist/build/` 被有意保留在版本库里, 不要加进 `.gitignore`。
+发布产物是根目录的 `dist/`: 用户通过 jsDelivr 从 GitHub 直接读取, 所以 `dist/build/` 与 `dist/ai-monitor/` 都被有意保留在版本库里, 不要加进 `.gitignore`。
 
-`master` 上的 `.github/workflows/build.yml` 会在 `src/**` 或构建配置变化时自动执行 `pnpm typecheck` + `pnpm build`, 若有差异就把 `dist/build/index.js` 提交回 `master` (提交信息带 `[skip ci]`, 且只改 `dist/build`, 不会循环触发)。因此日常不需要手动提交产物, 本地 `pnpm build` 只用于自查预览。
+`master` 上的 `.github/workflows/build.yml` 会在 `packages/**` 或构建配置变化时自动执行 `pnpm typecheck` + `pnpm build`, 若有差异就把整个 `dist/` 提交回 `master` (提交信息带 `[skip ci]`, 且只改 `dist`, 不会循环触发)。因此日常不需要手动提交产物, 本地 `pnpm build` 只用于自查预览。
 
-联调产物写到 `dist/dev/` (development 模式, 带 sourcemap), 已被 `.gitignore` 忽略; `pnpm dev` 与 `pnpm dev:build` 都不会碰 `dist/build/`。
+联调产物写到 `dist/dev/` (development 模式, 带 sourcemap), 已被 `.gitignore` 忽略; `pnpm dev` 与 `pnpm dev:build` 都不会碰发布产物。
 
-jsDelivr 只读取**公开**仓库; 仓库为私有或改名时, README 里的导入地址会 404. 分支地址 (`@master`) 有缓存, 需要立即生效时用 commit 哈希.
+jsDelivr 只读取**公开**仓库; 仓库为私有或改名时, 导入地址会 404. 分支地址 (`@master`) 有缓存, 需要立即生效时用 commit 哈希.
 
 ## 本地联调
 
-`pnpm dev` 在**同一个进程**里做三件事:
+`pnpm dev` (等价于 `pnpm --filter @silytavern/plot-progress-bar dev`) 在**同一个进程**里做三件事:
 
 | 服务 | 地址 | 作用 |
 | --- | --- | --- |
-| 静态文件服务 | `http://localhost:5500` | 托管仓库文件, 带 `Access-Control-Allow-Origin: *` 与 `no-store`, 供脚本 iframe 跨端口导入 |
+| 静态文件服务 | `http://localhost:5500` | 托管**仓库根目录**, 带 `Access-Control-Allow-Origin: *` 与 `no-store`, 供脚本 iframe 跨端口导入 |
 | Vite 监听构建 | — | 源码改动后重新打包到 `dist/dev/` (development 模式, 带 sourcemap) |
 | socket.io | `http://localhost:6621` | 每次构建完成后广播 `script_iframe_updated`, 让酒馆助手重载脚本 |
 
@@ -48,7 +56,7 @@ jsDelivr 只读取**公开**仓库; 仓库为私有或改名时, README 里的�
 
 1. 终端执行 `pnpm dev`(窗口保持打开).
 2. 打开酒馆页面; 「实时监听」右侧的 WiFi 图标变绿说明已连上.
-3. 修改 `src/**`: 构建完成 → 脚本 iframe 自动重载 → 状态栏用新代码重建.
+3. 修改 `packages/plot-progress-bar/src/**`: 构建完成 → 脚本 iframe 自动重载 → 状态栏用新代码重建.
 4. 调试: DevTools ‣ Sources 中能看到 `src/index.ts` 等原始文件(development sourcemap), 可直接下断点;
    脚本日志都带 `[剧情进度状态栏]` 前缀.
 5. 想强制重连时刷新酒馆页面即可.
@@ -59,22 +67,38 @@ jsDelivr 只读取**公开**仓库; 仓库为私有或改名时, README 里的�
 
 ## 可调项
 
-- `src/worldbook.ts`: `ENTRY_NAME`、`FALLBACK_WORLDBOOK_NAME`、新建条目的插入位置/深度。
-- `src/index.ts`: `MAX_PENDING_MESSAGES`(单次同步上限)、`REFRESH_DEBOUNCE_MS`。
-- `src/ai.ts`: `SYSTEM_PROMPT`(进度字段与取值要求)、单条消息截断长度、输入总长度上限。
+- `packages/plot-progress-bar/src/worldbook.ts`: `ENTRY_NAME`、`FALLBACK_WORLDBOOK_NAME`、新建条目的插入位置/深度。
+- `packages/plot-progress-bar/src/index.ts`: `MAX_PENDING_MESSAGES`(单次同步上限)、`REFRESH_DEBOUNCE_MS`。
+- `packages/plot-progress-bar/src/ai.ts`: `SYSTEM_PROMPT`(进度字段与取值要求)、单条消息截断长度、输入总长度上限。
+- `packages/ai-monitor/src/tt-ai-monitor.js`: `MAX_RECORDS`(历史条数, 默认 35)、`PENDING_TIMEOUT_MS`、面板样式与高度上限。
 
 ## 目录
 
 ```
-src/
-  index.ts     挂载、事件监听、刷新与同步编排
-  ui.ts        状态栏与 popover
-  worldbook.ts 世界书/条目定位与读写
-  ai.ts        提示词与 AI 调用、容错解析
-  schema.ts    zod 结构、YAML 读写、字段级 diff
-  styles.css   注入到酒馆 <head> 的样式
-  types/       酒馆助手全局接口的最小声明
+package.json              workspace 根: build / typecheck / dev 脚本
+pnpm-workspace.yaml       packages: ['packages/*']
+tsconfig.base.json        各包共享的 TS 编译选项
+dist/                     发布产物 (CI 回写, jsDelivr 读取)
+  build/index.js          剧情进度状态栏
+  ai-monitor/             AI 请求监控 (JSON + 源文件)
+packages/
+  plot-progress-bar/
+    src/
+      index.ts            挂载、事件监听、刷新与同步编排
+      ui.ts               状态栏与 popover
+      worldbook.ts        世界书/条目定位与读写
+      ai.ts               提示词与 AI 调用、容错解析
+      schema.ts           zod 结构、YAML 读写、字段级 diff
+      styles.css          注入到酒馆 <head> 的样式
+      types/              酒馆助手全局接口的最小声明
+    scripts/dev.mjs       本地联调 (HTTP + 监听构建 + socket.io)
+    vite.config.ts        产物路径指向仓库根 dist/
+  ai-monitor/
+    src/tt-ai-monitor.js  面板源码 (单文件 IIFE)
+    scripts/build.mjs     打包成酒馆助手脚本 JSON
 ```
+
+新增脚本时: 在 `packages/<name>/` 建包, 声明 `build` 与 `typecheck` 两个脚本, 产物写到仓库根 `dist/<name>/`, 根 `pnpm -r` 会自动带上它; 若产物需要提交, 确保没有被 `.gitignore` 挡住。
 
 ## 视觉规范
 

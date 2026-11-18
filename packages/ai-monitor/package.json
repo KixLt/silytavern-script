@@ -1,0 +1,11 @@
+{
+  "name": "@silytavern/ai-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "酒馆助手脚本: 监控 TauriTavern 访问 AI 的成败、token 用量与缓存命中率",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node --check src/tt-ai-monitor.js"
+  }
+}

@@ -4,21 +4,19 @@ on:
   push:
     branches: [master]
     paths:
-      - 'src/**'
+      - 'packages/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-      - 'vite.config.ts'
-      - 'tsconfig.json'
+      - 'tsconfig.base.json'
       - '.github/workflows/build.yml'
   pull_request:
     paths:
-      - 'src/**'
+      - 'packages/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-      - 'vite.config.ts'
-      - 'tsconfig.json'
+      - 'tsconfig.base.json'
   workflow_dispatch:
 
 permissions:
@@ -46,23 +44,26 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # pnpm -r 逐个包执行, 任一包失败即中断
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Build
         run: pnpm build
 
-      # 产物由 jsDelivr 直接从 master 读取, 因此构建后回写仓库;
-      # 提交只改 dist/build, 不匹配上面的 paths, 不会触发下一轮构建.
-      - name: Commit dist/build
+      # 一次构建产出两个文件, 都由 jsDelivr 直接从 master 读取:
+      #   dist/build/index.js                剧情进度状态栏
+      #   dist/ai-monitor/TT-AI-Monitor.json AI 请求监控 (另附 tt-ai-monitor.js 源文件)
+      # 提交只改 dist/, 不匹配上面的 paths, 不会触发下一轮构建.
+      - name: Commit dist
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         run: |
-          if [ -z "$(git status --porcelain -- dist/build)" ]; then
-            echo "dist/build 没有变化, 跳过提交"
+          if [ -z "$(git status --porcelain -- dist)" ]; then
+            echo "dist 没有变化, 跳过提交"
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add dist/build
+          git add dist
           git commit -m 'chore: 更新构建产物 [skip ci]'
           git push

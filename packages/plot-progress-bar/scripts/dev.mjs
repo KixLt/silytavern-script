@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import { build } from 'vite';
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const PACKAGE_ROOT = fileURLToPath(new URL('..', import.meta.url)); // packages/plot-progress-bar
+const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url)); // 仓库根目录, 产物都放在它的 dist/ 下
 const HTTP_PORT = Number(process.env.PPB_HTTP_PORT ?? 5500);
 const SOCKET_PORT = Number(process.env.PPB_SOCKET_PORT ?? 6621);
 
@@ -28,10 +29,10 @@ const MIME_TYPES = {
 
 const http_server = createServer((request, response) => {
   const pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname);
-  let file_path = path.join(ROOT, pathname);
+  let file_path = path.join(REPO_ROOT, pathname);
 
   // 防止 ../ 越界读取
-  if (!file_path.startsWith(ROOT)) {
+  if (!file_path.startsWith(REPO_ROOT)) {
     response.writeHead(403).end('Forbidden');
     return;
   }
@@ -78,7 +79,8 @@ http_server.listen(HTTP_PORT, () => {
 console.info(`[联调] 实时监听: http://localhost:${SOCKET_PORT}  (在 酒馆助手 ‣ 开发 ‣ 实时监听 中启用)`);
 
 const watcher = await build({
-  configFile: path.join(ROOT, 'vite.config.ts'),
+  root: PACKAGE_ROOT,
+  configFile: path.join(PACKAGE_ROOT, 'vite.config.ts'),
   mode: 'development',
   logLevel: 'info',
   build: { watch: {} },

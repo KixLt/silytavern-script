@@ -4,7 +4,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["jquery", "vite/client"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -13,6 +12,5 @@
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true
-  },
-  "include": ["src", "vite.config.ts"]
+  }
 }

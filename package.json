@@ -1,24 +1,14 @@
 {
   "name": "silytavern-script",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "酒馆助手脚本: 输入栏上方的剧情进度状态栏",
+  "description": "酒馆助手 (JS-Slash-Runner) 脚本集合",
+  "packageManager": "pnpm@12.10.1",
   "scripts": {
-    "build": "vite build",
-    "dev": "node scripts/dev.mjs",
-    "dev:build": "vite build --watch --mode development",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "jsonrepair": "^3.13.0",
-    "yaml": "^2.8.1",
-    "zod": "^4.1.11"
-  },
-  "devDependencies": {
-    "@types/jquery": "^3.5.33",
-    "socket.io": "^4.8.4",
-    "typescript": "^5.9.3",
-    "vite": "^7.1.9"
+    "build": "pnpm -r --sort run build",
+    "typecheck": "pnpm -r --sort run typecheck",
+    "dev": "pnpm --filter @silytavern/plot-progress-bar run dev",
+    "dev:build": "pnpm --filter @silytavern/plot-progress-bar run dev:build"
   }
 }

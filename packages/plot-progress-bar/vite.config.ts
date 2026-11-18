@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
   build: {
-    // 联调产物与发布产物分开, 避免 pnpm dev 覆盖掉要发布/提交的构建
-    outDir: mode === 'development' ? 'dist/dev' : 'dist/build',
+    // 联调产物与发布产物分开, 避免 pnpm dev 覆盖掉要发布/提交的构建;
+    // 产物统一放在仓库根目录 dist/ 下, jsDelivr 地址才能保持不变.
+    outDir: mode === 'development' ? '../../dist/dev' : '../../dist/build',
     emptyOutDir: true,
     target: 'es2022',
     // 联调产物保留原样方便断点, 发布产物用 Vite 内建的 esbuild 压缩
