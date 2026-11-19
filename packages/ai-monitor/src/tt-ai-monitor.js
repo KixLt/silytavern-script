@@ -21,6 +21,8 @@
     const DOC = HOST.document;
     const PANEL_ID = 'tt-ai-monitor';
     const STYLE_ID = 'tt-ai-monitor-style';
+    // 输入框上方的共享状态栏行: 本脚本与楼层可见性各挂一张卡片, 各占一半宽度
+    const ROW_ID = 'tavern-status-row';
     const LS_STATS = 'tt-ai-monitor:v2:stats';
     const LS_UI = 'tt-ai-monitor:v2:ui';
     const MAX_RECORDS = 35;
@@ -117,10 +119,12 @@
         lastError: null,
         streamReady: false,
         ui: {
-            left: null,
-            top: null,
             collapsed: false,
             hidden: false,
+            // 拖动标题栏后留下的浮动位置; 为 null 表示停靠在输入框上方
+            left: null,
+            top: null,
+            width: null,
             tab: 'live',
             selectedKey: null,
         },
@@ -195,6 +199,24 @@
         const style = DOC.createElement('style');
         style.id = STYLE_ID;
         style.textContent = `
+/* 共享状态栏行: 子元素等分剩余宽度 (楼层可见性会把它自己收窄成固定宽度) */
+#${ROW_ID} {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0 0 6px;
+    box-sizing: border-box;
+}
+#${ROW_ID} > * { flex: 1 1 0; min-width: 0; }
+
+/* 窄屏: 两栏各 50% 会挤成一列数字, 改成上下两张卡片 */
+@media (max-width: 640px) {
+    #${ROW_ID} { flex-direction: column; }
+    #${ROW_ID} > * { flex: 1 1 auto; width: 100%; }
+}
+
 #${PANEL_ID} {
     /* 主题变量 → 本组件语义色。
      * 状态色从正文色调和, 深色/浅色主题都读得清, 也不用框架默认的那套糖果色;
@@ -211,13 +233,11 @@
     --ttam-fail: color-mix(in srgb, #c26666 72%, var(--ttam-text));
     --ttam-warn: color-mix(in srgb, #c9962f 82%, var(--ttam-text));
 
-    position: fixed;
-    z-index: 9999;
+    /* 停靠在 #tavern-status-row 里, 与楼层可见性各占一半宽度 */
     display: flex;
     flex-direction: column;
-    width: 320px;
-    max-width: calc(100vw - 24px);
-    max-height: min(500px, calc(100vh - 24px));
+    width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     font-family: var(--mainFontFamily, "Segoe UI", "Microsoft YaHei", sans-serif);
     font-size: 12px;
@@ -231,6 +251,16 @@
     overflow: hidden;
     user-select: none;
 }
+/* 拖动标题栏后摘出状态栏, 变成可以摆在任意位置的浮层 */
+#${PANEL_ID}.ttam-floating {
+    position: fixed;
+    z-index: 9999;
+    max-height: min(500px, calc(100vh - 24px));
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .42);
+}
+#${PANEL_ID}.ttam-floating .ttam-head { cursor: grab; }
+#${PANEL_ID}.ttam-floating .ttam-head:active { cursor: grabbing; }
+
 #${PANEL_ID} .ttam-head { flex: 0 0 auto; }
 #${PANEL_ID} .ttam-tabs { flex: 0 0 auto; }
 #${PANEL_ID}.ttam-collapsed .ttam-main,
@@ -240,9 +270,8 @@
     align-items: center;
     gap: 6px;
     padding: 7px 6px 7px 9px;
-    cursor: grab;
+    cursor: pointer;
 }
-#${PANEL_ID} .ttam-head:active { cursor: grabbing; }
 #${PANEL_ID} .ttam-dot {
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--ttam-muted); flex: 0 0 auto;
@@ -287,13 +316,13 @@
 #${PANEL_ID} .ttam-main {
     flex: 1 1 auto;
     min-height: 0;
-    cursor: grab;
+    /* 停靠在上方, 展开后不能把聊天顶没: 超过这个高度就在卡片内部滚动 */
+    max-height: min(46vh, 340px);
     padding: 8px 9px 9px;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
 }
-#${PANEL_ID} .ttam-main:active { cursor: grabbing; }
 #${PANEL_ID} .ttam-view { display: none; }
 #${PANEL_ID} .ttam-view.is-active { display: block; }
 #${PANEL_ID} .ttam-status-card {
@@ -480,8 +509,27 @@
         };
     }
 
+    /**
+     * 输入框上方的状态栏行: 谁的脚本先跑谁建, 后来的直接复用.
+     * 行用 flex 把子元素压成等分, 所以只有本脚本时卡片独占整行.
+     */
+    function ensureRow() {
+        const existing = DOC.getElementById(ROW_ID);
+        if (existing?.isConnected) return existing;
+
+        const anchor = DOC.getElementById('send_form');
+        if (!anchor?.parentElement) return null;
+        const row = DOC.createElement('div');
+        row.id = ROW_ID;
+        anchor.parentElement.insertBefore(row, anchor);
+        return row;
+    }
+
     function ensurePanel() {
-        if (root && root.isConnected) return true;
+        if (root?.isConnected && root.parentElement?.id === ROW_ID) return true;
+        const row = ensureRow();
+        if (!row) return false;
+
         root = DOC.getElementById(PANEL_ID);
         const created = !root;
         if (created) {
@@ -489,8 +537,9 @@
             root = DOC.createElement('div');
             root.id = PANEL_ID;
             root.innerHTML = PANEL_TEMPLATE;
-            (DOC.body ?? DOC.documentElement).appendChild(root);
         }
+        // 页面重建 (换聊天 / 视口变化) 后卡片会掉出文档, 这里按需重新挂上
+        if (root.parentElement !== row) row.appendChild(root);
 
         els.dot = root.querySelector('.ttam-dot');
         els.badge = root.querySelector('.ttam-badge');
@@ -513,6 +562,9 @@
         els.live = queryView(els.liveView);
         els.detail = queryView(els.historyDetail);
 
+        if (!els.head) {
+            els.head = root.querySelector('.ttam-head');
+        }
         if (created) bindPanel();
         applyUi();
         return true;
@@ -521,16 +573,22 @@
     function applyUi() {
         if (!root) return;
         root.classList.toggle('ttam-collapsed', Boolean(state.ui.collapsed));
+        // 隐藏后卡片整体让出位置, 同一行的楼层可见性会独占整行
         root.style.display = state.ui.hidden ? 'none' : '';
-        if (els.collapse) els.collapse.textContent = state.ui.collapsed ? '+' : '–';
-        if (isNum(state.ui.top)) root.style.top = `${state.ui.top}px`;
-        if (isNum(state.ui.left)) {
+
+        const floating = isNum(state.ui.left) && isNum(state.ui.top);
+        root.classList.toggle('ttam-floating', floating);
+        if (floating) {
             root.style.left = `${state.ui.left}px`;
-            root.style.right = 'auto';
+            root.style.top = `${state.ui.top}px`;
+            root.style.width = `${isNum(state.ui.width) ? state.ui.width : 320}px`;
         } else {
-            root.style.right = '16px';
-            root.style.top = isNum(state.ui.top) ? `${state.ui.top}px` : '96px';
+            root.style.left = '';
+            root.style.top = '';
+            root.style.width = '';
         }
+
+        if (els.collapse) els.collapse.textContent = state.ui.collapsed ? '+' : '–';
         applyTab();
     }
 
@@ -548,6 +606,28 @@
     }
 
     function bindPanel() {
+        // 头部整行就是折叠开关 (与楼层可见性一致), 里面的按钮自己 stopPropagation
+        if (els.head) {
+            els.head.title = '拖动可以拖出状态栏 · 双击回到输入框上方 · 点击折叠';
+            els.head.addEventListener('click', () => {
+                // 刚拖动过: 这一下 click 是拖动的尾巴, 不要顺带折叠
+                if (draggedRecently) {
+                    draggedRecently = false;
+                    return;
+                }
+                state.ui.collapsed = !state.ui.collapsed;
+                saveUi();
+                applyUi();
+            });
+            els.head.addEventListener('dblclick', event => {
+                event.preventDefault();
+                state.ui.left = null;
+                state.ui.top = null;
+                saveUi();
+                applyUi();
+            });
+        }
+
         els.tabs.forEach(button => {
             button.addEventListener('click', event => {
                 event.stopPropagation();
@@ -581,6 +661,8 @@
             resetStats();
         });
 
+        bindDrag();
+
         els.list.addEventListener('click', event => {
             const item = event.target.closest('.ttam-item');
             if (!item?.dataset.key) return;
@@ -590,38 +672,64 @@
             render();
         });
 
-        bindDrag();
     }
 
-    // 整个面板都可拖动：除了按钮、列表项、输入控件与滚动条
+    let draggedRecently = false;
+
+    /**
+     * 拖动标题栏: 面板默认停在状态栏里, 一拖就摘出来变成浮层.
+     * 位置和宽度记下来, 下次打开还在原地; 双击标题栏回到状态栏.
+     */
     function bindDrag() {
-        const NO_DRAG = 'button, .ttam-item, a, input, textarea, select';
-        root.addEventListener('mousedown', event => {
-            if (event.button !== 0) return;
-            if (event.target.closest(NO_DRAG)) return;
-            if (event.target.closest('.ttam-main')) {
-                // 允许在滚动区空白处拖动，但不抢滚动条
-                const rect = els.main.getBoundingClientRect();
-                if (event.clientX > rect.right - 12) return;
+        if (!els.head) return;
+        let dragging = false;
+        let moved = false;
+        let origin = null;
+
+        const onMove = event => {
+            if (!dragging) return;
+            const dx = event.clientX - origin.x;
+            const dy = event.clientY - origin.y;
+            if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;  // 手抖不算拖动
+            moved = true;
+
+            const width = root.offsetWidth;
+            if (!root.classList.contains('ttam-floating')) {
+                // 第一次真正拖动: 摘出状态栏, 但保持视觉位置不跳
+                root.classList.add('ttam-floating');
+                root.style.width = `${width}px`;
+                root.style.left = `${origin.left}px`;
+                root.style.top = `${origin.top}px`;
             }
 
-            const rect = root.getBoundingClientRect();
-            const offsetX = event.clientX - rect.left;
-            const offsetY = event.clientY - rect.top;
-            const onMove = moveEvent => {
-                const left = Math.min(Math.max(moveEvent.clientX - offsetX, 0), Math.max(0, HOST.innerWidth - rect.width));
-                const top = Math.min(Math.max(moveEvent.clientY - offsetY, 0), Math.max(0, HOST.innerHeight - 40));
-                root.style.left = `${left}px`;
-                root.style.right = 'auto';
-                root.style.top = `${top}px`;
-                state.ui.left = Math.round(left);
-                state.ui.top = Math.round(top);
-            };
-            const onUp = () => {
-                DOC.removeEventListener('mousemove', onMove);
-                DOC.removeEventListener('mouseup', onUp);
+            const left = Math.min(Math.max(origin.left + dx, 0), Math.max(0, HOST.innerWidth - width));
+            const top = Math.min(Math.max(origin.top + dy, 0), Math.max(0, HOST.innerHeight - 40));
+            root.style.left = `${left}px`;
+            root.style.top = `${top}px`;
+            state.ui.left = Math.round(left);
+            state.ui.top = Math.round(top);
+            state.ui.width = Math.round(width);
+        };
+
+        const onUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            DOC.removeEventListener('mousemove', onMove);
+            DOC.removeEventListener('mouseup', onUp);
+            if (moved) {
+                draggedRecently = true;
                 saveUi();
-            };
+            }
+        };
+
+        els.head.addEventListener('mousedown', event => {
+            if (event.button !== 0) return;
+            if (event.target.closest('button, input, textarea, select, a')) return;
+            const rect = root.getBoundingClientRect();
+            dragging = true;
+            moved = false;
+            draggedRecently = false;
+            origin = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
             DOC.addEventListener('mousemove', onMove);
             DOC.addEventListener('mouseup', onUp);
             event.preventDefault();
@@ -1201,7 +1309,7 @@
             state.chatKey = currentChatKey();
             state.ui.selectedKey = null;
             loadStats();
-            render();
+            mount();
         });
     }
 
@@ -1213,8 +1321,8 @@
                 { name: '清空统计', visible: true },
             ]);
             const toggle = eventOn(getButtonEvent('显示/隐藏面板'), () => {
-                ensurePanel();
                 setVisible(Boolean(state.ui.hidden));
+                if (!state.ui.hidden) mount();
             });
             const clear = eventOn(getButtonEvent('清空统计'), () => resetStats());
             if (toggle?.stop) offs.push(toggle.stop);
@@ -1226,21 +1334,56 @@
 
     // ---------------------------------------------------------------- 生命周期
     function destroy() {
+        clearTimeout(mountTimer);
+        clearTimeout(viewportTimer);
+        HOST.removeEventListener('resize', onViewportChange);
+        HOST.removeEventListener('orientationchange', onViewportChange);
         offs.splice(0).forEach(stop => {
             try { stop(); } catch { /* 忽略 */ }
         });
         unpatchToastr();
+        // 行是共享的: 只剩下一个空壳时顺手删掉, 免得留一条 6px 的空行
+        const row = root?.parentElement;
         if (root?.isConnected) root.remove();
         root = null;
+        if (row?.id === ROW_ID && row.childElementCount === 0) row.remove();
+    }
+
+    // 输入区可能还没渲染好 (或被移动端重排重建), 挂不上就短暂重试
+    let mountTimer = null;
+    let mountAttempt = 0;
+    function mount() {
+        if (ensurePanel()) {
+            mountAttempt = 0;
+            render();
+            return;
+        }
+        if (mountAttempt >= 20) {
+            mountAttempt = 0;
+            console.warn('[AI 监控] 找不到 #send_form, 面板未挂载');
+            return;
+        }
+        mountAttempt += 1;
+        clearTimeout(mountTimer);
+        mountTimer = setTimeout(() => mount(), 500);
+    }
+
+    let viewportTimer = null;
+    function onViewportChange() {
+        clearTimeout(viewportTimer);
+        viewportTimer = setTimeout(() => {
+            if (ensurePanel()) render();
+        }, 250);
     }
 
     function start() {
         loadUi();
         state.chatKey = currentChatKey();
         loadStats();
-        ensurePanel();
-        render();
+        mount();
 
+        HOST.addEventListener('resize', onViewportChange);
+        HOST.addEventListener('orientationchange', onViewportChange);
         subscribeTavernEvents();
         patchToastr();
         setupTauriStream();
@@ -1250,7 +1393,7 @@
     HOST.__TT_AI_MONITOR__ = {
         destroy,
         resetStats,
-        show: () => { ensurePanel(); setVisible(true); },
+        show: () => { mount(); setVisible(true); },
         hide: () => setVisible(false),
         state,
     };

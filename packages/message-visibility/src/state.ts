@@ -182,11 +182,11 @@ export type Filter = 'all' | 'user' | 'assistant';
 
 export type UiPrefs = {
   filter: Filter;
-  /** 工具栏只显示「隐藏/总数 - 上一条状态」 */
-  compact: boolean;
+  /** 展开区收起, 只留状态栏那一行 (旧版本叫 compact, 读取时兼容) */
+  collapsed: boolean;
 };
 
-export const DEFAULT_UI_PREFS: UiPrefs = { filter: 'all', compact: false };
+export const DEFAULT_UI_PREFS: UiPrefs = { filter: 'all', collapsed: false };
 
 export function parseUiPrefs(value: unknown): UiPrefs {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -195,7 +195,8 @@ export function parseUiPrefs(value: unknown): UiPrefs {
   const raw = value as Record<string, unknown>;
   const filter: Filter =
     raw.filter === 'user' || raw.filter === 'assistant' ? raw.filter : 'all';
-  return { filter, compact: Boolean(raw.compact) };
+  // 旧版本用 compact 表示「只剩状态条」, 语义与 collapsed 一致
+  return { filter, collapsed: Boolean(raw.collapsed ?? raw.compact) };
 }
 
 /** 系统楼层不参与对话, 列表与统计都不算它 */

@@ -23,10 +23,12 @@ import { mountBar, type Bar, type BarSnapshot } from './ui';
 
 /** 楼层变动很密集 (流式、批量隐藏), 统一防抖后再读一遍聊天 */
 const REFRESH_DEBOUNCE_MS = 300;
-/** 摘要只保留开头一小段, 面板是开关表不是阅读器 */
-const EXCERPT_LENGTH = 48;
-/** 界面偏好 (筛选、紧凑模式) 跟人不跟聊天, 存在本地 */
+/** 摘要只保留开头一段: 列表里已经不显示正文, 它只用于悬停提示 */
+const EXCERPT_LENGTH = 80;
+/** 界面偏好 (筛选、展开状态) 跟人不跟聊天, 存在本地 */
 const UI_KEY = 'tt-message-visibility:ui';
+/** 输入框上方的共享状态栏行: 本脚本与 ai-monitor 各挂一张卡片, 各占一半宽度 */
+const ROW_ID = 'tavern-status-row';
 
 const page_document = window.parent?.document ?? document;
 const page_window = page_document.defaultView ?? window;
@@ -203,6 +205,28 @@ function injectStyle(): void {
   page_document.head.appendChild(style_el);
 }
 
+/**
+ * 输入框上方的状态栏行: 谁的脚本先跑谁建, 后来的直接复用.
+ * 行用 flex 把子元素压成等分, 所以只有本脚本时卡片独占整行,
+ * ai-monitor 也在时两者各占一半.
+ */
+function ensureRow(): HTMLElement | null {
+  const existing = page_document.getElementById(ROW_ID);
+  if (existing?.isConnected) {
+    return existing;
+  }
+  existing?.remove();
+
+  const anchor = page_document.getElementById('send_form');
+  if (!anchor?.parentElement) {
+    return null;
+  }
+  const row = page_document.createElement('div');
+  row.id = ROW_ID;
+  anchor.parentElement.insertBefore(row, anchor);
+  return row;
+}
+
 function ensureMounted(attempt = 0): void {
   if (!bar) {
     bar = mountBar({
@@ -237,8 +261,8 @@ function ensureMounted(attempt = 0): void {
     });
   }
 
-  const anchor = page_document.getElementById('send_form');
-  if (!anchor || !anchor.parentElement) {
+  const row = ensureRow();
+  if (!row) {
     if (attempt < 20) {
       setTimeout(() => errorCatched(ensureMounted)(attempt + 1), 500);
     } else {
@@ -247,10 +271,11 @@ function ensureMounted(attempt = 0): void {
     return;
   }
 
-  if (!bar.el.isConnected) {
-    anchor.parentElement.insertBefore(bar.el, anchor);
-    injectStyle();
+  // 页面重建 (换聊天 / 视口变化) 后卡片会掉出文档, 这里按需重新挂上
+  if (!bar.el.isConnected || bar.el.parentElement !== row) {
+    row.appendChild(bar.el);
   }
+  injectStyle();
 }
 
 function handleChatChanged(): void {

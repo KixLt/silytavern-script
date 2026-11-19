@@ -67,13 +67,28 @@ jsDelivr 只读取**公开**仓库; 仓库为私有或改名时, 导入地址会
 >
 > 默认 socket 端口 `6621` 与官方 `tavern_helper_template` 相同, 同时只能开一个; 冲突时用 `PPB_SOCKET_PORT` 换端口并同步修改酒馆助手的监听地址.
 
+### 不启动酒馆, 只看界面 (模拟页)
+
+`scripts/demo/` 里有一个模拟酒馆页面: 假聊天 + 酒馆助手接口的替身 (`mock-tavern.js`),
+直接加载 `dist/` 里的**真实产物**, 所以看到的就是发布的东西.
+
+```bash
+pnpm build
+node scripts/demo/serve.mjs          # http://localhost:5510/scripts/demo/tavern-mock.html
+```
+
+- 两个脚本同时启用, 各占输入框上方那一行的一半; 折叠任一张可以看到另一半保持原宽度.
+- `模拟请求` 按钮推一条假的 LLM 日志 + 新楼层, 用来验证 AI 监控与楼层可见性的联动.
+- F2 / F3 触发 AI 监控注册的脚本按钮 (`显示/隐藏面板` / `清空统计`).
+
 ## 可调项
 
 - `packages/plot-progress-bar/src/worldbook.ts`: `ENTRY_NAME`、`FALLBACK_WORLDBOOK_NAME`、新建条目的插入位置/深度。
 - `packages/plot-progress-bar/src/index.ts`: `MAX_PENDING_MESSAGES`(单次同步上限)、`REFRESH_DEBOUNCE_MS`。
 - `packages/plot-progress-bar/src/ai.ts`: `SYSTEM_PROMPT`(进度字段与取值要求)、单条消息截断长度、输入总长度上限。
 - `packages/ai-monitor/src/tt-ai-monitor.js`: `MAX_RECORDS`(历史条数, 默认 35)、`PENDING_TIMEOUT_MS`、面板样式与高度上限。
-- `packages/message-visibility/src/state.ts`: `MAX_ROUNDS`(定时规则上限)、`DEFAULT_WINDOW_ROUNDS`、`STORAGE_KEY`。
+- `packages/message-visibility/src/state.ts`: `MAX_ROUNDS`(定时规则上限)、`DEFAULT_WINDOW_ROUNDS`、`STORAGE_KEY`(聊天变量)、`UI_KEY` 与 `UiPrefs`(`index.ts` 里; 界面偏好含筛选与折叠状态)。
+- 两个脚本各自定义 `ROW_ID = 'tavern-status-row'` 与那段共享行样式: 它们必须保持一致, 改一处就要改另一处。
 
 ## 目录
 
@@ -101,13 +116,17 @@ packages/
     src/
       index.ts            挂载、事件监听、批量操作编排
       state.ts            纯逻辑: 窗口边界、定时规则倒数、持久化结构
-      ui.ts               状态栏与楼层列表 (原生 DOM)
+      ui.ts               停靠卡片与楼层列表 (原生 DOM)
       styles.css          注入到酒馆 <head> 的样式
       types/              酒馆助手全局接口的最小声明
     vite.config.ts        产物路径指向仓库根 dist/
   ai-monitor/
     src/tt-ai-monitor.js  面板源码 (单文件 IIFE)
     scripts/build.mjs     打包成酒馆助手脚本 JSON
+scripts/demo/
+  tavern-mock.html        模拟酒馆页面: 真实产物 + 假聊天, 用于看 UI
+  mock-tavern.js          酒馆助手接口的最小替身 (楼层/变量/事件/日志流)
+  serve.mjs               静态服务器: node scripts/demo/serve.mjs 后开 localhost:5510
 ```
 
 新增脚本时: 在 `packages/<name>/` 建包, 声明 `build` 与 `typecheck` 两个脚本, 产物写到仓库根 `dist/<name>/`, 根 `pnpm -r` 会自动带上它; 若产物需要提交, 确保没有被 `.gitignore` 挡住。
@@ -122,6 +141,17 @@ packages/
 - 药丸数字出现/消失不挤动旁边布局 (隐藏时保留占位), 图标位置永远不动。
 - 图标是 24 网格手画线稿 (线宽 1.6、方头方角): 档案册 / 折角待归档页 / 回转箭头。不用 emoji, 也不用图标库的默认形状。
 - 忙碌时只转被点那个按钮的图标, 三个按钮一起禁用。
+
+**输入框上方的共享状态栏行** —— 一行里可以并排多张卡片, 每张卡片自己是一个小面板。
+
+- 行是 `#tavern-status-row`, 插在 `#send_form` 前面 (即 `#form_sheld` 里)。谁的脚本先跑谁建, 后来的复用同一个元素; 不要各自往 `body` 里塞浮层。
+- 行的样式由脚本自己注入: `display: flex; gap: 8px; align-items: flex-start`, 子元素 `flex: 1 1 0; min-width: 0` 平分剩余宽度。
+- 宽度按内容需要分配, 不是一律对半: 楼层可见性那张 `flex: 0 0 300px` (行里只有楼层号和角色, 不需要半屏), AI 监控吃掉剩下的空间。想再调宽度就改自己卡片的 `flex-basis`, 别去动行。
+- AI 监控可以从行里拖出来: 拖标题栏即变成 `position: fixed` 的浮层 (位置和宽度记在 localStorage), 双击标题栏回到行里。落回行里时仍然是这一行的普通成员, 不额外占位。
+- 折叠只收起内容, 不改占位: 行不重排, 另一张卡片也不会突然变宽。
+- 每张卡片的滚动区各自设上限 (`min(46vh, 340px)` 一类), 展开再长也不会把聊天顶没。
+- 窄屏 (`max-width: 640px`) 改成上下堆叠、各自独占整行: 并排两栏在手机上只会挤成一列数字; 收窄的固定宽度也要在这一档放开。
+- 卡片视觉沿用 ai-monitor 那一套: 圆形状态点 + 12px 标题 + 弱化徽标 + `−`/`+` 折叠 + 可选的 `×` 关闭; Tab 一律下划线式。
 
 **弹窗** —— 标题和主操作固定, 中间滚动。
 
@@ -149,9 +179,9 @@ packages/
 ## 手机端适配
 
 - 按钮在窄屏下最小高度 36px, 触摸设备 (`pointer: coarse`) 40px, 同步按钮宽 44px; 横向两个按钮平分剩余宽度。
-- popover 用 `position: fixed` 挂到页面 `body`, 宽度跟随状态栏并被限制在视口内; 高度按状态栏上方剩余空间收敛 (短屏 / 键盘弹出时不会溢出屏幕), 内容超出时滚动。
-- 点击输入框会自动收起 popover, 避免遮挡聊天或与软键盘叠加。
-- 屏幕旋转、窗口尺寸变化 (移动端重排可能重建输入区) 时会在 250ms 防抖后自动重新挂载状态栏。
+- 状态栏行在窄屏下改为上下堆叠, 卡片宽度跟随输入区: 并排时的固定宽度 (`flex: 0 0 300px`) 在窄屏下改回 `flex: 1 1 auto; width: 100%`。
+- 卡片内容自己滚 (列表 / 面板内部 `overflow-y: auto`), 整行高度不会超过 `46vh` 一类上限, 短屏和键盘弹出时不会把输入框挤出视口。
+- 屏幕旋转、窗口尺寸变化 (移动端重排可能重建输入区) 时会在 250ms 防抖后自动重新挂载卡片; 两个脚本都能在 `#send_form` 出现之前先重试约 10 秒。
 - 确认框在窄屏下为两个等宽的 38px 高按钮, 方便手指点击。
 
 ## 让 AI 直接查看酒馆网页 (chrome-devtools MCP)
