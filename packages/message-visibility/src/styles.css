@@ -1,32 +1,34 @@
-/* 楼层可见性状态栏 —— 视觉规范
+/* 楼层可见性 —— shadcn/ui 的设计 token 与组件规格
  *
- * 北极星: 「不打扰的一行开关 + 一张能扫读的楼层表」
- *  - 状态栏是常驻设施, 主角只有「隐藏了几楼」; 其余退成弱文字与图标。
- *  - 弹窗是操作面板: 顶部工具固定、中间列表滚动、底部说明固定。
- *  - 与仓库里的剧情进度状态栏共用同一套几何语言: 24 网格线稿、方头方角、无 emoji。
+ * 酒馆脚本是 IIFE 注入, 引 React + Radix 会让体积翻几倍, 所以这里把 shadcn 的
+ * token 与组件形状用纯 CSS 复刻: 同一套 background / foreground / muted / border /
+ * primary / ring, 同样的 button / switch / tabs / badge / input 规格。
  *
- * 变量三层: 主题变量 (SillyTavern) → 本组件语义色 → 具体规则。
+ * token 全部从酒馆主题派生, 深色/浅色主题都能读; 弱化色用 SmartThemeEmColor,
+ * 不用 SmartThemeQuoteColor (很多主题里它是高饱和引用色)。
  */
 
 .mvb-bar,
 .mvb-popover {
-  /* 主题变量 (缺失时用兜底值)。弱化色用 SmartThemeEmColor,
-   * 不要用 SmartThemeQuoteColor —— 很多主题里它是高饱和引用色。 */
-  --mvb-text: var(--SmartThemeBodyColor, #dcdcd2);
-  --mvb-muted: var(--SmartThemeEmColor, #919191);
-  --mvb-accent: var(--SmartThemeUnderlineColor, #bce7cf);
-  --mvb-bg: var(--SmartThemeBlurTintColor, #171717);
+  --mvb-radius: 8px;
 
-  --mvb-line: color-mix(in srgb, var(--mvb-text) 14%, transparent);
-  --mvb-surface: color-mix(in srgb, var(--mvb-text) 8%, transparent);
-  --mvb-accent-soft: color-mix(in srgb, var(--mvb-accent) 22%, transparent);
-  --mvb-accent-line: color-mix(in srgb, var(--mvb-accent) 45%, transparent);
-  --mvb-danger: color-mix(in srgb, #c26666 72%, var(--mvb-text));
+  --mvb-background: var(--SmartThemeBlurTintColor, #171717);
+  --mvb-foreground: var(--SmartThemeBodyColor, #e6e6e6);
+  --mvb-muted: color-mix(in srgb, var(--mvb-foreground) 9%, var(--mvb-background));
+  --mvb-muted-foreground: var(--SmartThemeEmColor, #8d8d8d);
+  --mvb-border: color-mix(in srgb, var(--mvb-foreground) 16%, transparent);
+  --mvb-primary: var(--SmartThemeUnderlineColor, #bce7cf);
+  --mvb-primary-foreground: var(--mvb-background);
+  --mvb-destructive: color-mix(in srgb, #c26666 78%, var(--mvb-foreground));
+  --mvb-ring: color-mix(in srgb, var(--mvb-primary) 55%, transparent);
 
-  --mvb-radius: 10px;
+  --mvb-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --mvb-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.28), 0 2px 4px -2px rgba(0, 0, 0, 0.24);
+
   --mvb-font: 13px;
-  --mvb-font-small: 12px;
-  --mvb-line-height: 1.62;
+  --mvb-font-sm: 12px;
+  --mvb-font-xs: 11px;
+  --mvb-ease: 140ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mvb-bar,
@@ -41,114 +43,110 @@
   display: none !important;
 }
 
-/* ── 状态栏 ───────────────────────────────────────────── */
+/* ── 工具栏 ───────────────────────────────────────────── */
 
 .mvb-bar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 2px;
   margin: 0 0 6px;
-  padding: 3px 4px;
   font-family: inherit;
   font-size: var(--mvb-font);
-  line-height: 1.3;
-  color: var(--mvb-text);
-  background: color-mix(in srgb, var(--mvb-bg) 84%, transparent);
-  border: 1px solid var(--mvb-line);
-  border-radius: var(--mvb-radius);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  line-height: 1.4;
+  color: var(--mvb-foreground);
 }
 
-.mvb-bar button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  font: inherit;
-  line-height: 1.3;
-  color: inherit;
-  background: transparent;
-  border: 0;
-  border-radius: 7px;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.14s ease, color 0.14s ease;
-}
-
-.mvb-bar button:hover {
-  background: var(--mvb-surface);
-}
-
-.mvb-bar button:focus-visible {
-  outline: 2px solid var(--mvb-accent);
-  outline-offset: -2px;
-}
-
-.mvb-open {
+.mvb-trigger {
   display: flex;
-  flex: 1 1 auto;
   width: 100%;
-  color: var(--mvb-muted);
+  gap: 7px;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 9px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--mvb-background);
+  border: 1px solid var(--mvb-border);
+  border-radius: var(--mvb-radius);
+  box-shadow: var(--mvb-shadow-xs);
+  cursor: pointer;
+  transition: background-color var(--mvb-ease), border-color var(--mvb-ease);
 }
 
-.mvb-open:hover {
-  color: var(--mvb-text);
+.mvb-trigger:hover {
+  background: var(--mvb-muted);
 }
 
-.mvb-icon {
+.mvb-trigger:focus-visible {
+  outline: 2px solid var(--mvb-ring);
+  outline-offset: 1px;
+}
+
+.mvb-trigger-icon {
   display: inline-flex;
   flex: none;
+  color: var(--mvb-muted-foreground);
 }
 
-.mvb-icon svg {
+.mvb-trigger-icon svg {
   display: block;
 }
 
-.mvb-label {
+/* 紧凑模式只留「图标 3/40 - 隐藏」 */
+.mvb-only-compact {
+  display: none;
+}
+
+.mvb-bar-compact .mvb-only-compact {
+  display: inline;
+}
+
+.mvb-bar-compact .mvb-only-full {
+  display: none;
+}
+
+.mvb-trigger-compact {
+  font-variant-numeric: tabular-nums;
+}
+
+.mvb-trigger-label {
   font-weight: 500;
 }
 
-.mvb-caret {
-  margin-left: 2px;
-  opacity: 0.7;
-}
-
-/* 药丸: 隐藏楼层是主角, 定时规则是配角 */
-.mvb-pill {
+.mvb-trigger-chevron {
   display: inline-flex;
+  margin-left: auto;
+  color: var(--mvb-muted-foreground);
+  transform: rotate(180deg);
+  transition: transform var(--mvb-ease);
+}
+
+.mvb-trigger[aria-expanded='true'] .mvb-trigger-chevron {
+  transform: rotate(0deg);
+}
+
+/* ── 徽标 (shadcn badge · secondary) ──────────────────── */
+
+.mvb-badge {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
   align-items: center;
-  gap: 3px;
-  min-width: 20px;
-  padding: 0 7px;
-  font-size: var(--mvb-font-small);
-  font-weight: 600;
+  padding: 1px 7px;
+  font-size: var(--mvb-font-xs);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  line-height: 17px;
+  line-height: 16px;
+  color: var(--mvb-muted-foreground);
   white-space: nowrap;
+  background: var(--mvb-muted);
+  border: 1px solid var(--mvb-border);
+  border-radius: 6px;
 }
 
-.mvb-hidden-pill {
-  /* 实心药丸: 主题强调色做底, 文字取主题底色 —— 任何主题下都是最大反差 */
-  color: var(--mvb-bg);
-  background: var(--mvb-accent);
-  border-radius: 9px;
-}
-
-.mvb-rule-pill {
-  color: var(--mvb-muted);
-  background: var(--mvb-surface);
-  border: 1px solid var(--mvb-line);
-  border-radius: 9px;
-}
-
-.mvb-rule-pill svg {
+.mvb-badge svg {
   display: block;
 }
 
-/* ── 弹窗 ─────────────────────────────────────────────── */
+/* ── 弹窗 (shadcn popover) ────────────────────────────── */
 
 .mvb-popover {
   position: fixed;
@@ -156,187 +154,315 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: inherit;
   font-size: var(--mvb-font);
-  line-height: var(--mvb-line-height);
-  color: var(--mvb-text);
-  /* 面板不透明, 所以不需要背景模糊; 高度感只留一个紧的阴影 */
-  background: var(--mvb-bg);
-  border: 1px solid var(--mvb-line);
-  border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34);
+  line-height: 1.5;
+  color: var(--mvb-foreground);
+  background: var(--mvb-background);
+  border: 1px solid var(--mvb-border);
+  border-radius: calc(var(--mvb-radius) + 2px);
+  box-shadow: var(--mvb-shadow-md);
 }
 
 .mvb-head {
+  display: flex;
   flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 12px 14px 9px;
-  border-bottom: 1px solid var(--mvb-line);
-}
-
-.mvb-title {
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.mvb-meta {
-  font-size: var(--mvb-font-small);
-  font-variant-numeric: tabular-nums;
-  color: var(--mvb-muted);
-}
-
-/* 工具区固定: 一键操作与轮数窗口不随列表滚走 */
-.mvb-tools {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 9px 14px 10px;
-  border-bottom: 1px solid var(--mvb-line);
-}
-
-.mvb-tools-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
+  padding: 9px 10px 8px 12px;
 }
 
-.mvb-window-label {
-  font-size: var(--mvb-font-small);
-  color: var(--mvb-muted);
+.mvb-head-title {
+  font-size: var(--mvb-font);
+  font-weight: 600;
 }
 
-.mvb-window-input,
-.mvb-editor-rounds {
-  width: 56px;
-  padding: 3px 6px;
-  font: inherit;
-  font-size: var(--mvb-font-small);
+.mvb-head-meta {
+  font-size: var(--mvb-font-xs);
   font-variant-numeric: tabular-nums;
-  color: var(--mvb-text);
-  text-align: center;
-  background: var(--mvb-surface);
-  border: 1px solid var(--mvb-line);
-  border-radius: 6px;
+  color: var(--mvb-muted-foreground);
 }
 
-.mvb-window-input:focus-visible,
-.mvb-editor-rounds:focus-visible {
-  outline: 2px solid var(--mvb-accent-line);
-  outline-offset: 0;
-}
-
-.mvb-tools .mvb-primary {
+.mvb-head-actions {
+  display: flex;
+  gap: 2px;
   margin-left: auto;
 }
 
-.mvb-ghost,
-.mvb-primary {
+/* ── 图标按钮 (shadcn button · ghost · icon-sm) ───────── */
+
+.mvb-icon-btn {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 3px 10px;
-  font: inherit;
-  font-size: var(--mvb-font-small);
-  color: var(--mvb-text);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--mvb-muted-foreground);
   background: transparent;
-  border: 1px solid var(--mvb-line);
-  border-radius: 7px;
+  border: 0;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.14s ease, color 0.14s ease;
+  transition: background-color var(--mvb-ease), color var(--mvb-ease);
 }
 
-.mvb-ghost:hover {
-  background: var(--mvb-surface);
+.mvb-icon-btn:hover {
+  color: var(--mvb-foreground);
+  background: var(--mvb-muted);
 }
 
-.mvb-ghost.mvb-danger {
-  color: var(--mvb-danger);
-}
-
-.mvb-primary {
-  font-weight: 600;
-  color: var(--mvb-accent);
-  background: var(--mvb-accent-soft);
-  border-color: var(--mvb-accent-line);
-}
-
-.mvb-primary:hover {
-  background: color-mix(in srgb, var(--mvb-accent) 30%, transparent);
-}
-
-.mvb-ghost:focus-visible,
-.mvb-primary:focus-visible {
-  outline: 2px solid var(--mvb-accent);
+.mvb-icon-btn:focus-visible {
+  outline: 2px solid var(--mvb-ring);
   outline-offset: 1px;
 }
 
-/* 列表独立滚动 */
-.mvb-body {
+.mvb-icon-btn[aria-pressed='true'] {
+  color: var(--mvb-foreground);
+  background: var(--mvb-muted);
+}
+
+/* ── 工具区 ───────────────────────────────────────────── */
+
+.mvb-toolbar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--mvb-border);
+}
+
+/* shadcn tabs · segmented */
+.mvb-segmented {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 2px;
+  padding: 2px;
+  background: var(--mvb-muted);
+  border-radius: var(--mvb-radius);
+}
+
+.mvb-segment {
+  padding: 4px 8px;
+  font: inherit;
+  font-size: var(--mvb-font-sm);
+  color: var(--mvb-muted-foreground);
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--mvb-ease), color var(--mvb-ease);
+}
+
+.mvb-segment:hover {
+  color: var(--mvb-foreground);
+}
+
+.mvb-segment.is-active {
+  font-weight: 500;
+  color: var(--mvb-foreground);
+  background: var(--mvb-background);
+  box-shadow: var(--mvb-shadow-xs);
+}
+
+.mvb-segment:focus-visible {
+  outline: 2px solid var(--mvb-ring);
+  outline-offset: 1px;
+}
+
+.mvb-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── 按钮 (shadcn button · outline / default / destructive) */
+
+.mvb-btn {
+  display: inline-flex;
+  flex: none;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: var(--mvb-font-sm);
+  font-weight: 500;
+  color: var(--mvb-foreground);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--mvb-border);
+  border-radius: 6px;
+  box-shadow: var(--mvb-shadow-xs);
+  cursor: pointer;
+  transition: background-color var(--mvb-ease), color var(--mvb-ease), border-color var(--mvb-ease);
+}
+
+.mvb-btn:hover {
+  background: var(--mvb-muted);
+}
+
+.mvb-btn:focus-visible {
+  outline: 2px solid var(--mvb-ring);
+  outline-offset: 1px;
+}
+
+.mvb-btn-primary {
+  color: var(--mvb-primary-foreground);
+  background: var(--mvb-primary);
+  border-color: transparent;
+}
+
+.mvb-btn-primary:hover {
+  background: color-mix(in srgb, var(--mvb-primary) 88%, var(--mvb-foreground));
+}
+
+.mvb-btn-danger {
+  color: var(--mvb-destructive);
+  border-color: color-mix(in srgb, var(--mvb-destructive) 40%, transparent);
+  box-shadow: none;
+}
+
+.mvb-btn-danger:hover {
+  background: color-mix(in srgb, var(--mvb-destructive) 14%, transparent);
+}
+
+.mvb-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* ── 输入 (shadcn input) ──────────────────────────────── */
+
+.mvb-input,
+.mvb-select {
+  min-height: 28px;
+  padding: 3px 7px;
+  font: inherit;
+  font-size: var(--mvb-font-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--mvb-foreground);
+  background: transparent;
+  border: 1px solid var(--mvb-border);
+  border-radius: 6px;
+  transition: border-color var(--mvb-ease);
+}
+
+.mvb-input:focus-visible,
+.mvb-select:focus-visible {
+  outline: 2px solid var(--mvb-ring);
+  outline-offset: 0;
+  border-color: var(--mvb-primary);
+}
+
+.mvb-window-row {
+  gap: 6px;
+}
+
+.mvb-window-label {
+  font-size: var(--mvb-font-sm);
+  color: var(--mvb-muted-foreground);
+  white-space: nowrap;
+}
+
+.mvb-window-input {
+  width: 56px;
+  text-align: center;
+}
+
+.mvb-window-apply {
+  margin-left: auto;
+}
+
+/* ── 列表 ─────────────────────────────────────────────── */
+
+.mvb-list-wrap {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 6px 8px 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: var(--mvb-line) transparent;
+  scrollbar-color: var(--mvb-border) transparent;
 }
 
-.mvb-body::-webkit-scrollbar {
+.mvb-list-wrap::-webkit-scrollbar {
   width: 8px;
 }
 
-.mvb-body::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--mvb-text) 12%, transparent);
+.mvb-list-wrap::-webkit-scrollbar-thumb {
+  background: var(--mvb-border);
   border-radius: 4px;
 }
 
 .mvb-list {
   margin: 0;
-  padding: 0;
+  padding: 6px;
   list-style: none;
 }
 
 .mvb-row {
   display: flex;
-  gap: 8px;
+  gap: 7px;
   align-items: center;
   padding: 3px 6px;
-  border-radius: 7px;
+  border-radius: 6px;
+  transition: background-color var(--mvb-ease);
 }
 
 .mvb-row:hover {
-  background: var(--mvb-surface);
+  background: var(--mvb-muted);
 }
 
-.mvb-no {
-  flex: 0 0 auto;
+.mvb-row-id {
+  flex: none;
   min-width: 30px;
-  font-size: var(--mvb-font-small);
+  font-size: var(--mvb-font-xs);
   font-variant-numeric: tabular-nums;
-  color: var(--mvb-muted);
+  color: var(--mvb-muted-foreground);
 }
 
 .mvb-role {
-  flex: 0 0 auto;
+  flex: none;
   padding: 0 6px;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 16px;
-  color: var(--mvb-muted);
-  background: var(--mvb-surface);
-  border-radius: 8px;
+  color: var(--mvb-muted-foreground);
+  background: var(--mvb-muted);
+  border: 1px solid var(--mvb-border);
+  border-radius: 5px;
 }
 
 .mvb-role-assistant {
-  color: var(--mvb-accent);
-  background: var(--mvb-accent-soft);
+  color: var(--mvb-primary);
+  border-color: color-mix(in srgb, var(--mvb-primary) 34%, transparent);
+}
+
+.mvb-row-body {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  min-height: 24px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.mvb-row-body:focus-visible {
+  outline: 2px solid var(--mvb-ring);
+  outline-offset: 1px;
+  border-radius: 4px;
 }
 
 .mvb-excerpt {
@@ -349,148 +475,109 @@
 }
 
 .mvb-dim {
-  color: var(--mvb-muted);
+  color: var(--mvb-muted-foreground);
 }
 
-/* 隐藏的楼层: 文字退后 + 划线, 状态不只靠开关的颜色 */
+/* 隐藏的楼层: 文字退后 + 划线, 状态不只看开关 */
 .mvb-row.is-hidden .mvb-excerpt {
-  color: var(--mvb-muted);
+  color: var(--mvb-muted-foreground);
   text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--mvb-muted) 60%, transparent);
-}
-
-.mvb-row.is-hidden .mvb-no {
-  color: var(--mvb-muted);
+  text-decoration-thickness: 1px;
 }
 
 .mvb-chip {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: none;
   gap: 3px;
   align-items: center;
   padding: 0 6px;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 16px;
-  color: var(--mvb-muted);
-  background: var(--mvb-surface);
-  border: 1px solid var(--mvb-line);
-  border-radius: 8px;
+  color: var(--mvb-muted-foreground);
   white-space: nowrap;
+  background: var(--mvb-muted);
+  border: 1px solid var(--mvb-border);
+  border-radius: 5px;
 }
 
-.mvb-clock {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  color: var(--mvb-muted);
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
+.mvb-chip svg {
+  display: block;
 }
 
-.mvb-clock:hover:not(:disabled) {
-  color: var(--mvb-accent);
-  background: var(--mvb-surface);
+.mvb-empty {
+  padding: 14px 8px;
+  font-size: var(--mvb-font);
+  color: var(--mvb-muted-foreground);
+  text-align: center;
 }
 
-.mvb-clock:disabled {
-  cursor: default;
-  opacity: 0.35;
-}
+/* ── 开关 (shadcn switch) ─────────────────────────────── */
 
-/* 开关 */
 .mvb-switch {
   position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  cursor: pointer;
-}
-
-.mvb-switch input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.mvb-track {
-  position: relative;
-  display: block;
+  flex: none;
   width: 34px;
   height: 18px;
-  background: color-mix(in srgb, var(--mvb-text) 10%, transparent);
-  border: 1px solid var(--mvb-line);
-  border-radius: 9px;
-  transition: background-color 0.14s ease, border-color 0.14s ease;
+  padding: 0;
+  background: color-mix(in srgb, var(--mvb-muted-foreground) 42%, transparent);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color var(--mvb-ease);
 }
 
-.mvb-track::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  background: var(--mvb-muted);
-  border-radius: 50%;
-  transition: transform 0.14s ease, background-color 0.14s ease;
+.mvb-switch:hover {
+  background: color-mix(in srgb, var(--mvb-muted-foreground) 58%, transparent);
 }
 
-.mvb-switch input:checked + .mvb-track {
-  background: var(--mvb-accent-soft);
-  border-color: var(--mvb-accent-line);
+.mvb-switch[aria-checked='true'] {
+  background: var(--mvb-primary);
 }
 
-.mvb-switch input:checked + .mvb-track::after {
-  background: var(--mvb-accent);
-  transform: translateX(16px);
-}
-
-.mvb-switch input:focus-visible + .mvb-track {
-  outline: 2px solid var(--mvb-accent);
+.mvb-switch:focus-visible {
+  outline: 2px solid var(--mvb-ring);
   outline-offset: 2px;
 }
 
-.mvb-switch input:disabled + .mvb-track {
-  cursor: default;
-  opacity: 0.4;
+.mvb-switch-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  background: var(--mvb-background);
+  border-radius: 999px;
+  box-shadow: var(--mvb-shadow-xs);
+  transition: transform var(--mvb-ease);
 }
 
-/* 定时规则的内联编辑行 */
+.mvb-switch[aria-checked='true'] .mvb-switch-thumb {
+  transform: translateX(16px);
+}
+
+/* ── 定时编辑器 ───────────────────────────────────────── */
+
 .mvb-editor {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   margin: 2px 6px 6px;
-  padding: 7px 9px;
-  font-size: var(--mvb-font-small);
-  background: var(--mvb-surface);
-  border: 1px dashed var(--mvb-line);
-  border-radius: 8px;
-}
-
-.mvb-editor-label {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-  color: var(--mvb-muted);
-}
-
-.mvb-editor-action {
-  padding: 3px 6px;
-  font: inherit;
-  font-size: var(--mvb-font-small);
-  color: var(--mvb-text);
-  background: var(--mvb-bg);
-  border: 1px solid var(--mvb-line);
+  padding: 8px;
+  font-size: var(--mvb-font-sm);
+  background: var(--mvb-muted);
+  border: 1px solid var(--mvb-border);
   border-radius: 6px;
+}
+
+.mvb-editor-text {
+  color: var(--mvb-muted-foreground);
+  white-space: nowrap;
+}
+
+.mvb-editor-rounds {
+  width: 52px;
+  text-align: center;
 }
 
 .mvb-editor-actions {
@@ -499,88 +586,144 @@
   margin-left: auto;
 }
 
-.mvb-empty {
-  padding: 10px 6px;
-  font-size: var(--mvb-font);
-  color: var(--mvb-muted);
-}
+/* ── 页脚 ─────────────────────────────────────────────── */
 
 .mvb-foot {
   flex: none;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 14px 10px;
-  border-top: 1px solid var(--mvb-line);
-}
-
-.mvb-note {
-  font-size: var(--mvb-font-small);
-  line-height: 1.5;
-  color: var(--mvb-muted);
+  padding: 8px 12px;
+  font-size: var(--mvb-font-xs);
+  color: var(--mvb-muted-foreground);
+  border-top: 1px solid var(--mvb-border);
 }
 
 /* 操作进行中: 只降低可点性, 不遮挡内容 */
-.mvb-popover.mvb-busy .mvb-primary,
-.mvb-popover.mvb-busy .mvb-ghost,
-.mvb-popover.mvb-busy .mvb-clock,
-.mvb-popover.mvb-busy .mvb-switch {
+.mvb-popover.mvb-busy .mvb-btn,
+.mvb-popover.mvb-busy .mvb-segment,
+.mvb-popover.mvb-busy .mvb-switch,
+.mvb-popover.mvb-busy .mvb-row-body,
+.mvb-popover.mvb-busy .mvb-input,
+.mvb-popover.mvb-busy .mvb-select {
   pointer-events: none;
   opacity: 0.6;
 }
 
-.mvb-popover.mvb-busy {
-  cursor: progress;
-}
+/* ── 手机端 ───────────────────────────────────────────── */
 
-/* ── 窄屏 / 手机 ──────────────────────────────────────── */
-
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .mvb-bar {
     margin-bottom: 4px;
-    padding: 2px 3px;
   }
 
-  .mvb-bar button {
-    min-height: 38px;
-    padding: 6px;
+  .mvb-trigger {
+    min-height: 36px;
+    padding: 6px 9px;
+    font-size: 13px;
   }
 
+  /* 弹窗宽度由 JS 撑满视口; 这里只调内部节奏 */
   .mvb-head {
-    padding: 11px 12px 8px;
+    padding: 10px 10px 9px 12px;
   }
 
-  .mvb-tools {
-    padding: 8px 12px 9px;
+  .mvb-toolbar {
+    gap: 7px;
+    padding: 0 10px 9px;
   }
 
-  .mvb-body {
-    padding: 5px 6px 6px;
+  .mvb-segment {
+    padding: 5px 8px;
+  }
+
+  .mvb-toolbar-row {
+    gap: 6px;
+  }
+
+  /* 窄屏上「全部可见/全部隐藏」平分一行 */
+  .mvb-toolbar-row .mvb-btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .mvb-window-row .mvb-window-apply {
+    flex: 0 0 auto;
+  }
+
+  .mvb-list {
+    padding: 6px 8px;
+  }
+
+  .mvb-row {
+    gap: 8px;
+    padding: 6px 4px;
+  }
+
+  .mvb-row-body {
+    min-height: 32px;
+  }
+
+  .mvb-excerpt {
+    font-size: 13px;
+  }
+
+  .mvb-switch {
+    width: 40px;
+    height: 22px;
+  }
+
+  .mvb-switch-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mvb-switch[aria-checked='true'] .mvb-switch-thumb {
+    transform: translateX(18px);
+  }
+
+  .mvb-editor {
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .mvb-editor-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .mvb-editor-actions .mvb-btn {
+    flex: 1 1 0;
+    min-height: 34px;
   }
 
   .mvb-foot {
     padding: 8px 12px 9px;
   }
-
-  .mvb-ghost,
-  .mvb-primary {
-    min-height: 34px;
-  }
 }
 
 @media (pointer: coarse) {
-  .mvb-bar button {
+  .mvb-trigger {
     min-height: 40px;
   }
 
-  .mvb-clock {
+  .mvb-icon-btn {
     width: 32px;
     height: 32px;
   }
 
-  .mvb-ghost,
-  .mvb-primary {
-    min-height: 38px;
+  .mvb-btn {
+    min-height: 34px;
+  }
+
+  .mvb-switch {
+    width: 40px;
+    height: 22px;
+  }
+
+  .mvb-switch-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mvb-switch[aria-checked='true'] .mvb-switch-thumb {
+    transform: translateX(18px);
   }
 }

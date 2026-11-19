@@ -1,10 +1,12 @@
 import css from './styles.css?inline';
 
 import {
+  DEFAULT_UI_PREFS,
   EMPTY_STORED,
   STORAGE_KEY,
   clampRounds,
   parseStored,
+  parseUiPrefs,
   planAll,
   planWindow,
   staleRuleIds,
@@ -14,6 +16,7 @@ import {
   type Rule,
   type RuleAction,
   type Stored,
+  type UiPrefs,
   type Visibility,
 } from './state';
 import { mountBar, type Bar, type BarSnapshot } from './ui';
@@ -22,12 +25,15 @@ import { mountBar, type Bar, type BarSnapshot } from './ui';
 const REFRESH_DEBOUNCE_MS = 300;
 /** 摘要只保留开头一小段, 面板是开关表不是阅读器 */
 const EXCERPT_LENGTH = 48;
+/** 界面偏好 (筛选、紧凑模式) 跟人不跟聊天, 存在本地 */
+const UI_KEY = 'tt-message-visibility:ui';
 
 const page_document = window.parent?.document ?? document;
 const page_window = page_document.defaultView ?? window;
 
 let floors: Floor[] = [];
 let stored: Stored = { ...EMPTY_STORED, rules: [] };
+let prefs: UiPrefs = { ...DEFAULT_UI_PREFS };
 let bar: Bar | null = null;
 let style_el: HTMLStyleElement | null = null;
 let refresh_timer: ReturnType<typeof setTimeout> | undefined;
@@ -132,7 +138,24 @@ async function applyVisibility(changes: Visibility[]): Promise<void> {
 }
 
 function snapshot(): BarSnapshot {
-  return { floors, rules: stored.rules, window_rounds: stored.window_rounds };
+  return { floors, rules: stored.rules, window_rounds: stored.window_rounds, prefs };
+}
+
+function loadPrefs(): UiPrefs {
+  try {
+    return parseUiPrefs(JSON.parse(page_window.localStorage.getItem(UI_KEY) ?? 'null'));
+  } catch {
+    return { ...DEFAULT_UI_PREFS };
+  }
+}
+
+function savePrefs(next: UiPrefs): void {
+  prefs = next;
+  try {
+    page_window.localStorage.setItem(UI_KEY, JSON.stringify(next));
+  } catch {
+    /* 隐私模式或配额不足时只影响记忆, 不影响功能 */
+  }
 }
 
 /** 一轮 = 一次 AI 回复: 定时规则在这里倒数 */
@@ -207,6 +230,10 @@ function ensureMounted(attempt = 0): void {
       async clearRules() {
         saveStored({ ...stored, rules: [] });
       },
+      setPrefs(patch) {
+        savePrefs({ ...prefs, ...patch });
+        bar?.refresh();
+      },
     });
   }
 
@@ -233,7 +260,6 @@ function handleChatChanged(): void {
   bar?.setVisible(hasChat());
   bar?.refresh();
 }
-
 /** 屏幕旋转、软键盘收起或移动端重排后, 输入区可能被重建 */
 function handleViewportChange(): void {
   clearTimeout(mount_timer);
@@ -259,6 +285,7 @@ function init(): void {
   }
 
   stored = loadStored();
+  prefs = loadPrefs();
   syncFromChat();
 
   const listeners = [

@@ -123,14 +123,6 @@ export function describeRule(rule: Rule): string {
   return `${rule.rounds_left} 轮后${rule.action === 'hide' ? '隐藏' : '可见'}`;
 }
 
-export function summarize(floors: Floor[], rules: Rule[]) {
-  return {
-    total: floors.filter(floor => floor.role !== 'system').length,
-    hidden: floors.filter(floor => floor.role !== 'system' && floor.is_hidden).length,
-    scheduled: rules.length,
-  };
-}
-
 /** 全部可见 / 全部隐藏; 系统楼层不动, 它们不参与对话 */
 export function planAll(floors: Floor[], hidden: boolean): Visibility[] {
   return floors
@@ -181,4 +173,64 @@ export function planWindow(floors: Floor[], rounds: number): Visibility[] {
 export function staleRuleIds(rules: Rule[], floors: Floor[]): number[] {
   const alive = new Set(floors.map(floor => floor.message_id));
   return rules.filter(rule => !alive.has(rule.message_id)).map(rule => rule.message_id);
+}
+
+// ---------------------------------------------------------------- 列表筛选与状态
+
+/** 列表顶部的筛选: 全部 / 只有用户的提问 / 只有 AI 的回复 */
+export type Filter = 'all' | 'user' | 'assistant';
+
+export type UiPrefs = {
+  filter: Filter;
+  /** 工具栏只显示「隐藏/总数 - 上一条状态」 */
+  compact: boolean;
+};
+
+export const DEFAULT_UI_PREFS: UiPrefs = { filter: 'all', compact: false };
+
+export function parseUiPrefs(value: unknown): UiPrefs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_UI_PREFS };
+  }
+  const raw = value as Record<string, unknown>;
+  const filter: Filter =
+    raw.filter === 'user' || raw.filter === 'assistant' ? raw.filter : 'all';
+  return { filter, compact: Boolean(raw.compact) };
+}
+
+/** 系统楼层不参与对话, 列表与统计都不算它 */
+export function conversationFloors(floors: Floor[]): Floor[] {
+  return floors.filter(floor => floor.role !== 'system');
+}
+
+export function filterFloors(floors: Floor[], filter: Filter): Floor[] {
+  const list = conversationFloors(floors);
+  return filter === 'all' ? list : list.filter(floor => floor.role === filter);
+}
+
+export type Status = {
+  hidden: number;
+  total: number;
+  /** 最后一条对话楼层是否对 AI 隐藏; 没有楼层时为 null */
+  last_hidden: boolean | null;
+};
+
+export function statusOf(floors: Floor[], rules: Rule[] = []): Status {
+  const list = conversationFloors(floors);
+  const last = list.reduce<Floor | null>(
+    (acc, floor) => (acc === null || floor.message_id > acc.message_id ? floor : acc),
+    null,
+  );
+  void rules;
+  return {
+    hidden: list.filter(floor => floor.is_hidden).length,
+    total: list.length,
+    last_hidden: last ? last.is_hidden : null,
+  };
+}
+
+/** 工具栏紧凑模式的文案: 「3/40 - 隐藏」 */
+export function statusLabel(status: Status): string {
+  const last = status.last_hidden === null ? '无楼层' : status.last_hidden ? '隐藏' : '可见';
+  return `${status.hidden}/${status.total} - ${last}`;
 }

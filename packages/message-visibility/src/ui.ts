@@ -1,19 +1,24 @@
 import {
   clampRounds,
   describeRule,
+  filterFloors,
   findRule,
   MAX_ROUNDS,
   MIN_ROUNDS,
-  summarize,
+  statusLabel,
+  statusOf,
+  type Filter,
   type Floor,
   type Rule,
   type RuleAction,
+  type UiPrefs,
 } from './state';
 
 export type BarSnapshot = {
   floors: Floor[];
   rules: Rule[];
   window_rounds: number;
+  prefs: UiPrefs;
 };
 
 export type BarHandlers = {
@@ -23,6 +28,7 @@ export type BarHandlers = {
   window(rounds: number): Promise<void>;
   schedule(message_id: number, action: RuleAction | null, rounds: number): Promise<void>;
   clearRules(): Promise<void>;
+  setPrefs(patch: Partial<UiPrefs>): void;
 };
 
 export type Bar = {
@@ -32,16 +38,25 @@ export type Bar = {
   destroy(): void;
 };
 
-/** 24 网格手画线稿, 线宽 1.6, 方头方角 —— 与仓库里另一个状态栏同一套几何语言 */
-const ICON_LIST = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4.6 7h14.8M4.6 12h14.8M4.6 17h9.6"/></svg>`;
-const ICON_CLOCK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.4V12l3.2 2"/></svg>`;
-const ICON_CARET = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 10l5 5 5-5"/></svg>`;
+/** 24 网格手画线稿, 线宽 1.6: 插件 / 时钟 / 收起 / 关闭 / 箭头 */
+const ICON_PLUG = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v4M15 3v4"/><path d="M6 7h12v3.4a6 6 0 0 1-6 6 6 6 0 0 1-6-6z"/><path d="M12 16.4V21"/></svg>`;
+const ICON_CLOCK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.4V12l3.2 2"/></svg>`;
+const ICON_COLLAPSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14"/><path d="M7.5 11.5l4.5 4.5 4.5-4.5"/></svg>`;
+const ICON_EXPAND = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14"/><path d="M7.5 16.5l4.5-4.5 4.5 4.5"/></svg>`;
+const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const ICON_CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 14.5L12 9l5.5 5.5"/></svg>`;
 
-const ROLE_LABEL: Record<Floor['role'], string> = {
+const ROLE_TEXT: Record<Floor['role'], string> = {
   system: '系统',
   assistant: 'AI',
   user: '用户',
 };
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'user', label: '用户' },
+  { value: 'assistant', label: 'AI' },
+];
 
 function escapeHtml(text: string): string {
   return text
@@ -56,26 +71,27 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-type AsyncAction = () => Promise<void>;
-
 export function mountBar(handlers: BarHandlers): Bar {
-  // 脚本运行在 iframe 里, 面板要挂到酒馆页面本身: 一律用父页面的 document 创建节点
+  // 脚本跑在 iframe 里, 界面要挂到酒馆页面本身
   const page_document = window.parent?.document ?? document;
   const page_window = page_document.defaultView ?? window;
 
+  // ── 工具栏 ────────────────────────────────────────────
   const el = page_document.createElement('div');
   el.className = 'mvb-bar';
   el.setAttribute('role', 'toolbar');
   el.setAttribute('aria-label', '楼层可见性');
   el.innerHTML = `
-    <button type="button" class="mvb-open" aria-haspopup="dialog" aria-expanded="false">
-      <span class="mvb-icon">${ICON_LIST}</span>
-      <span class="mvb-label">楼层可见</span>
-      <span class="mvb-pill mvb-hidden-pill" hidden></span>
-      <span class="mvb-pill mvb-rule-pill" hidden></span>
-      <span class="mvb-icon mvb-caret">${ICON_CARET}</span>
+    <button class="mvb-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+      <span class="mvb-trigger-icon">${ICON_PLUG}</span>
+      <span class="mvb-trigger-compact mvb-only-compact"></span>
+      <span class="mvb-trigger-label mvb-only-full">楼层可见</span>
+      <span class="mvb-badge mvb-only-full" data-badge="hidden" hidden></span>
+      <span class="mvb-badge mvb-only-full" data-badge="rules" hidden>${ICON_CLOCK}<span data-badge-rules>0</span></span>
+      <span class="mvb-trigger-chevron">${ICON_CHEVRON}</span>
     </button>`;
 
+  // ── 弹窗 ──────────────────────────────────────────────
   const popover = page_document.createElement('div');
   popover.className = 'mvb-popover';
   popover.setAttribute('role', 'dialog');
@@ -83,76 +99,102 @@ export function mountBar(handlers: BarHandlers): Bar {
   popover.hidden = true;
   page_document.body.appendChild(popover);
 
-  const $open = el.querySelector<HTMLButtonElement>('.mvb-open')!;
-  const $hidden_pill = el.querySelector<HTMLElement>('.mvb-hidden-pill')!;
-  const $rule_pill = el.querySelector<HTMLElement>('.mvb-rule-pill')!;
+  const trigger = el.querySelector<HTMLButtonElement>('.mvb-trigger')!;
+  const compact_label = el.querySelector<HTMLElement>('.mvb-trigger-compact')!;
+  const hidden_badge = el.querySelector<HTMLElement>('[data-badge="hidden"]')!;
+  const rules_badge = el.querySelector<HTMLElement>('[data-badge="rules"]')!;
+  const rules_count = el.querySelector<HTMLElement>('[data-badge-rules]')!;
 
-  let open_editor: number | null = null;
+  let editor_id: number | null = null;
   let busy = false;
+  let shell_ready = false;
 
+  const snapshot = () => handlers.snapshot();
   const isOpen = () => !popover.hidden;
 
-  /** 上层操作失败时只提示, 不打断弹窗: 用户还可以继续调整 */
-  async function run(action: AsyncAction): Promise<void> {
-    if (busy) {
-      return;
-    }
-    busy = true;
-    popover.classList.add('mvb-busy');
-    try {
-      await action();
-    } catch (error) {
-      console.warn('[楼层可见性] 操作失败', error);
-      toastr.error(errorMessage(error), '楼层可见性');
-    } finally {
-      busy = false;
-      popover.classList.remove('mvb-busy');
-      render();
-    }
+  function insideUi(target: EventTarget | null): boolean {
+    const node = target as Node | null;
+    return Boolean(node && (el.contains(node) || popover.contains(node)));
   }
 
-  /**
-   * 弹窗只能贴状态栏上方, 且只用 `top` 定位:
-   * 酒馆的 <body> 是 position: fixed, 用 `bottom` 会参照一个 0 高的包含块, 弹窗会飞出视口.
-   * 所以先渲染内容再量高度.
-   */
-  function positionPopover(): void {
-    const rect = el.getBoundingClientRect();
-    const gap = 8;
-    const viewport_width = page_window.innerWidth;
-    const viewport_height = page_window.innerHeight;
-    const width = Math.min(Math.max(rect.width, 300), 520, viewport_width - 16);
-    const left = Math.min(Math.max(rect.left, 8), Math.max(8, viewport_width - width - 8));
-    const space_above = rect.top - gap * 2;
-    const space_below = viewport_height - rect.bottom - gap * 2;
-    const place_above = space_above >= 200 || space_above >= space_below;
-    const max_height = Math.max(160, Math.min(place_above ? space_above : space_below, viewport_height * 0.7));
+  // ── 工具栏渲染 ────────────────────────────────────────
+  function renderBar(): void {
+    const { floors, rules, prefs } = snapshot();
+    const status = statusOf(floors, rules);
+    const scheduled = rules.length;
 
-    popover.style.left = `${left}px`;
-    popover.style.width = `${width}px`;
-    popover.style.maxHeight = `${max_height}px`;
+    el.classList.toggle('mvb-bar-compact', prefs.compact);
+    compact_label.textContent = statusLabel(status);
 
-    const height = popover.getBoundingClientRect().height;
-    const top = place_above ? rect.top - gap - height : rect.bottom + gap;
-    popover.style.top = `${Math.max(gap, Math.min(top, Math.max(gap, viewport_height - gap - height)))}px`;
+    hidden_badge.textContent = `隐藏 ${status.hidden}`;
+    hidden_badge.hidden = status.hidden === 0;
+    rules_badge.hidden = scheduled === 0;
+    rules_count.textContent = String(scheduled);
+    rules_badge.title = `${scheduled} 条定时规则`;
+    trigger.title = prefs.compact
+      ? `${statusLabel(status)} · 点击展开面板`
+      : '楼层可见性';
+    trigger.setAttribute('aria-expanded', String(isOpen()));
   }
 
+  // ── 弹窗骨架 (只在打开时构建一次) ─────────────────────
+  function renderShell(): void {
+    const { window_rounds, prefs } = snapshot();
+    popover.innerHTML = `
+      <header class="mvb-head">
+        <div class="mvb-head-title">楼层可见性</div>
+        <div class="mvb-head-meta" data-meta></div>
+        <div class="mvb-head-actions">
+          <button class="mvb-icon-btn" type="button" data-role="compact" title="收起为状态条" aria-pressed="${prefs.compact}">
+            ${prefs.compact ? ICON_EXPAND : ICON_COLLAPSE}
+          </button>
+          <button class="mvb-icon-btn" type="button" data-role="close" title="关闭" aria-label="关闭">
+            ${ICON_CLOSE}
+          </button>
+        </div>
+      </header>
+      <div class="mvb-toolbar">
+        <div class="mvb-segmented" role="tablist" aria-label="筛选楼层">
+          ${FILTERS.map(
+            item =>
+              `<button class="mvb-segment" type="button" role="tab" data-role="filter" data-filter="${item.value}">${item.label}</button>`,
+          ).join('')}
+        </div>
+        <div class="mvb-toolbar-row">
+          <button class="mvb-btn" type="button" data-role="all" data-hidden="false">全部可见</button>
+          <button class="mvb-btn" type="button" data-role="all" data-hidden="true">全部隐藏</button>
+          <button class="mvb-btn mvb-btn-danger" type="button" data-role="clear-rules" hidden>清除定时</button>
+        </div>
+        <div class="mvb-toolbar-row mvb-window-row">
+          <label class="mvb-window-label" for="mvb-window-input">最近</label>
+          <input id="mvb-window-input" class="mvb-input mvb-window-input" type="number"
+                 min="${MIN_ROUNDS}" max="${MAX_ROUNDS}" inputmode="numeric" value="${window_rounds}">
+          <span class="mvb-window-label">轮可见</span>
+          <button class="mvb-btn mvb-btn-primary mvb-window-apply" type="button" data-role="window">应用</button>
+        </div>
+      </div>
+      <div class="mvb-list-wrap">
+        <ul class="mvb-list" role="list"></ul>
+      </div>
+      <footer class="mvb-foot">隐藏的楼层不会发给 AI，改动立即保存</footer>`;
+    shell_ready = true;
+  }
+
+  // ── 列表渲染 ──────────────────────────────────────────
   function rowHtml(floor: Floor, rule: Rule | undefined): string {
-    const hidden = floor.is_hidden ? ' is-hidden' : '';
-    const role = `<span class="mvb-role mvb-role-${floor.role}">${ROLE_LABEL[floor.role]}</span>`;
+    const hidden = floor.is_hidden;
     const chip = rule
       ? `<span class="mvb-chip" title="定时规则">${ICON_CLOCK}${escapeHtml(describeRule(rule))}</span>`
       : '';
-    const schedule_disabled = floor.role === 'system' ? ' disabled' : '';
     return (
-      `<li class="mvb-row${hidden}" data-id="${floor.message_id}">` +
-      `<span class="mvb-no">#${floor.message_id}</span>${role}` +
-      `<span class="mvb-excerpt">${escapeHtml(floor.excerpt) || '<span class="mvb-dim">（空）</span>'}</span>` +
-      chip +
-      `<button type="button" class="mvb-clock" data-role="schedule" title="设置 N 轮后可见性"${schedule_disabled}>${ICON_CLOCK}</button>` +
-      `<label class="mvb-switch" title="${floor.is_hidden ? '当前对 AI 隐藏' : '当前对 AI 可见'}">` +
-      `<input type="checkbox" data-role="toggle" ${floor.is_hidden ? '' : 'checked'}${schedule_disabled}>` +
-      `<span class="mvb-track"></span></label>` +
+      `<li class="mvb-row${hidden ? ' is-hidden' : ''}" data-id="${floor.message_id}">` +
+      `<span class="mvb-row-id">#${floor.message_id}</span>` +
+      `<span class="mvb-role mvb-role-${floor.role}">${ROLE_TEXT[floor.role]}</span>` +
+      `<button class="mvb-row-body" type="button" data-role="edit" title="设置定时规则">` +
+      `<span class="mvb-excerpt">${escapeHtml(floor.excerpt) || '<span class="mvb-dim">（空）</span>'}</span>${chip}` +
+      `</button>` +
+      `<button class="mvb-switch" type="button" role="switch" data-role="toggle" aria-checked="${!hidden}" aria-label="对 AI ${hidden ? '隐藏' : '可见'}">` +
+      `<span class="mvb-switch-thumb"></span></button>` +
       `</li>`
     );
   }
@@ -162,151 +204,240 @@ export function mountBar(handlers: BarHandlers): Bar {
     const rounds = rule?.rounds_left ?? 3;
     return (
       `<li class="mvb-editor" data-editor="${floor.message_id}">` +
-      `<label class="mvb-editor-label">楼层 #${floor.message_id} 在` +
-      `<input type="number" class="mvb-editor-rounds" min="${MIN_ROUNDS}" max="${MAX_ROUNDS}" value="${rounds}"> 轮后</label>` +
-      `<select class="mvb-editor-action">` +
-      `<option value="hide"${action === 'hide' ? ' selected' : ''}>对 AI 隐藏</option>` +
-      `<option value="show"${action === 'show' ? ' selected' : ''}>对 AI 可见</option>` +
+      `<span class="mvb-editor-text">#${floor.message_id} 在</span>` +
+      `<input class="mvb-input mvb-editor-rounds" type="number" min="${MIN_ROUNDS}" max="${MAX_ROUNDS}" inputmode="numeric" value="${rounds}" aria-label="轮数">` +
+      `<span class="mvb-editor-text">轮后</span>` +
+      `<select class="mvb-select mvb-editor-action" aria-label="到点后的可见性">` +
+      `<option value="hide"${action === 'hide' ? ' selected' : ''}>隐藏</option>` +
+      `<option value="show"${action === 'show' ? ' selected' : ''}>可见</option>` +
       `</select>` +
       `<span class="mvb-editor-actions">` +
-      `<button type="button" class="mvb-primary" data-role="apply-rule">确定</button>` +
-      (rule ? `<button type="button" class="mvb-ghost" data-role="clear-rule">取消规则</button>` : '') +
+      `<button class="mvb-btn mvb-btn-primary" type="button" data-role="apply-rule">确定</button>` +
+      `<button class="mvb-btn" type="button" data-role="cancel-rule">取消</button>` +
+      (rule ? `<button class="mvb-btn mvb-btn-danger" type="button" data-role="remove-rule">删除规则</button>` : '') +
       `</span></li>`
     );
   }
 
-  function renderPopover(): void {
-    const snapshot = handlers.snapshot();
-    const summary = summarize(snapshot.floors, snapshot.rules);
-    const previous_body = popover.querySelector<HTMLElement>('.mvb-body');
-    const scroll_top = previous_body?.scrollTop ?? 0;
+  /** 重渲染列表前记下编辑器里正在输入的内容, 免得后台刷新把用户输入冲掉 */
+  function captureEditor() {
+    if (editor_id === null) {
+      return null;
+    }
+    const box = popover.querySelector<HTMLElement>(`[data-editor="${editor_id}"]`);
+    if (!box) {
+      return null;
+    }
+    return {
+      rounds: box.querySelector<HTMLInputElement>('.mvb-editor-rounds')?.value ?? '',
+      action: box.querySelector<HTMLSelectElement>('.mvb-editor-action')?.value ?? 'hide',
+      focused: box.contains(page_document.activeElement),
+    };
+  }
 
-    const ordered = snapshot.floors.slice().sort((a, b) => b.message_id - a.message_id);
-    const rows = ordered.map(floor => rowHtml(floor, findRule(snapshot.rules, floor.message_id))).join('');
-    const list = rows || '<li class="mvb-empty">这个聊天还没有楼层。</li>';
+  function renderList(captured: ReturnType<typeof captureEditor> = null): void {
+    const { floors, rules, prefs } = snapshot();
+    const visible = filterFloors(floors, prefs.filter);
 
-    popover.innerHTML = `
-      <div class="mvb-head">
-        <div class="mvb-title">楼层可见性</div>
-        <div class="mvb-meta">共 ${summary.total} 楼 · 隐藏 ${summary.hidden} 楼${
-          summary.scheduled > 0 ? ` · ${summary.scheduled} 条定时` : ''
-        } · 最新在前</div>
-      </div>
-      <div class="mvb-tools">
-        <div class="mvb-tools-row">
-          <button type="button" class="mvb-ghost" data-role="all" data-hidden="false">全部可见</button>
-          <button type="button" class="mvb-ghost" data-role="all" data-hidden="true">全部隐藏</button>
-          ${
-            summary.scheduled > 0
-              ? '<button type="button" class="mvb-ghost mvb-danger" data-role="clear-rules">清除定时</button>'
-              : ''
-          }
-        </div>
-        <div class="mvb-tools-row">
-          <span class="mvb-window-label">只让最近</span>
-          <input type="number" class="mvb-window-input" min="${MIN_ROUNDS}" max="${MAX_ROUNDS}" value="${snapshot.window_rounds}">
-          <span class="mvb-window-label">轮可见</span>
-          <button type="button" class="mvb-primary" data-role="window">应用</button>
-        </div>
-      </div>
-      <div class="mvb-body">
-        <ul class="mvb-list">${list}</ul>
-      </div>
-      <div class="mvb-foot">
-        <span class="mvb-note">隐藏的楼层不会发给 AI，改动立即保存</span>
-        <button type="button" class="mvb-ghost" data-role="close">关闭</button>
-      </div>`;
-
-    // 楼层可能在别的窗口被删掉: 编辑器指向不存在的楼层时直接收起
-    if (open_editor !== null) {
-      const floor = snapshot.floors.find(item => item.message_id === open_editor);
-      const row = popover.querySelector<HTMLElement>(`.mvb-row[data-id="${open_editor}"]`);
-      if (floor && row) {
-        row.insertAdjacentHTML('afterend', editorHtml(floor, findRule(snapshot.rules, floor.message_id)));
-      } else {
-        open_editor = null;
-      }
+    // 筛选后编辑器指向的楼层不在列表里, 直接收起
+    if (editor_id !== null && !visible.some(floor => floor.message_id === editor_id)) {
+      editor_id = null;
     }
 
-    const next_body = popover.querySelector<HTMLElement>('.mvb-body');
-    if (next_body) {
-      next_body.scrollTop = scroll_top;
+    const ordered = visible.slice().sort((a, b) => b.message_id - a.message_id);
+    const list = popover.querySelector<HTMLElement>('.mvb-list');
+    if (!list) {
+      return;
+    }
+
+    list.innerHTML = ordered.length
+      ? ordered.map(floor => rowHtml(floor, findRule(rules, floor.message_id))).join('')
+      : `<li class="mvb-empty">${prefs.filter === 'all' ? '这个聊天还没有楼层。' : '当前筛选下没有楼层。'}</li>`;
+
+    if (editor_id !== null) {
+      const floor = visible.find(item => item.message_id === editor_id);
+      const row = list.querySelector<HTMLElement>(`.mvb-row[data-id="${editor_id}"]`);
+      if (floor && row) {
+        row.insertAdjacentHTML('afterend', editorHtml(floor, findRule(rules, floor.message_id)));
+        const box = list.querySelector<HTMLElement>(`[data-editor="${editor_id}"]`);
+        if (box && captured) {
+          const rounds = box.querySelector<HTMLInputElement>('.mvb-editor-rounds');
+          const action = box.querySelector<HTMLSelectElement>('.mvb-editor-action');
+          if (rounds && captured.rounds) rounds.value = captured.rounds;
+          if (action) action.value = captured.action;
+          if (captured.focused) rounds?.focus();
+        }
+      } else {
+        editor_id = null;
+      }
     }
   }
 
-  function renderBar(): void {
-    const snapshot = handlers.snapshot();
-    const summary = summarize(snapshot.floors, snapshot.rules);
-    $hidden_pill.textContent = `隐藏 ${summary.hidden}`;
-    $hidden_pill.hidden = summary.hidden === 0;
-    $rule_pill.innerHTML = `${ICON_CLOCK}<span>${summary.scheduled}</span>`;
-    $rule_pill.hidden = summary.scheduled === 0;
-    $rule_pill.title = `${summary.scheduled} 条定时规则`;
-    // 数字消失时按钮宽度不跳: 药丸隐藏仍占位由 CSS 处理
-    el.dataset.hidden = String(summary.hidden);
-    el.dataset.rules = String(summary.scheduled);
+  /** 头部统计 / 筛选态 / 清除定时按钮, 与列表一起刷新 */
+  function renderChrome(): void {
+    const { floors, rules, prefs } = snapshot();
+    const status = statusOf(floors, rules);
+
+    const meta = popover.querySelector<HTMLElement>('[data-meta]');
+    if (meta) {
+      meta.textContent = `${status.hidden}/${status.total} 隐藏${rules.length ? ` · ${rules.length} 定时` : ''}`;
+    }
+
+    popover.querySelectorAll<HTMLElement>('[data-role="filter"]').forEach(button => {
+      const active = button.dataset.filter === prefs.filter;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+
+    const clear = popover.querySelector<HTMLElement>('[data-role="clear-rules"]');
+    if (clear) {
+      clear.hidden = rules.length === 0;
+    }
+
+    const compact = popover.querySelector<HTMLElement>('[data-role="compact"]');
+    if (compact) {
+      compact.setAttribute('aria-pressed', String(prefs.compact));
+      compact.title = prefs.compact ? '展开完整工具栏' : '收起为状态条';
+      compact.innerHTML = prefs.compact ? ICON_EXPAND : ICON_COLLAPSE;
+    }
+
+    const window_input = popover.querySelector<HTMLInputElement>('.mvb-window-input');
+    if (window_input && page_document.activeElement !== window_input) {
+      window_input.value = String(snapshot().window_rounds);
+    }
+  }
+
+  function renderPanel(): void {
+    if (!shell_ready) {
+      renderShell();
+    }
+    const captured = captureEditor();
+    renderChrome();
+    renderList(captured);
   }
 
   function render(): void {
     renderBar();
     if (isOpen()) {
-      renderPopover();
+      renderPanel();
       positionPopover();
     }
   }
 
-  function openPopover(): void {
-    popover.hidden = false;
-    $open.setAttribute('aria-expanded', 'true');
-    render();
+  // ── 定位 ──────────────────────────────────────────────
+  /**
+   * 只用 `top` 定位: 酒馆的 <body> 是 position: fixed, 用 `bottom` 会参照一个
+   * 0 高的包含块, 弹窗会飞到视口外。先渲染再量高度。
+   */
+  function positionPopover(): void {
+    const rect = el.getBoundingClientRect();
+    const gap = 8;
+    const vw = page_window.innerWidth;
+    const vh = page_window.innerHeight;
+    const narrow = vw < 640;
+
+    const width = narrow ? Math.max(240, vw - gap * 2) : Math.min(Math.max(rect.width, 320), 520);
+    const left = narrow
+      ? gap
+      : Math.min(Math.max(rect.left, gap), Math.max(gap, vw - width - gap));
+
+    popover.style.left = `${left}px`;
+    popover.style.width = `${width}px`;
+
+    const space_above = rect.top - gap * 2;
+    const space_below = vh - rect.bottom - gap * 2;
+    const place_above = space_above >= 240 || space_above >= space_below;
+    const limit = place_above ? space_above : space_below;
+    popover.style.maxHeight = `${Math.max(200, Math.min(limit, vh * (narrow ? 0.72 : 0.7)))}px`;
+
+    const height = popover.getBoundingClientRect().height;
+    const top = place_above ? rect.top - gap - height : rect.bottom + gap;
+    popover.style.top = `${Math.max(gap, Math.min(top, Math.max(gap, vh - gap - height)))}px`;
   }
 
-  function closePopover(): void {
-    popover.hidden = true;
-    $open.setAttribute('aria-expanded', 'false');
-    open_editor = null;
-  }
-
-  $open.addEventListener('click', () => {
-    if (isOpen()) {
-      closePopover();
+  // ── 开关 ──────────────────────────────────────────────
+  function setOpen(open: boolean): void {
+    if (open === isOpen()) {
+      return;
+    }
+    popover.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+    if (open) {
+      renderPanel();
+      positionPopover();
+      // 打开后把焦点交给弹窗, 键盘用户也能用 Esc 关掉
+      popover.querySelector<HTMLElement>('.mvb-segment.is-active')?.focus();
     } else {
-      openPopover();
+      editor_id = null;
+      shell_ready = false;
     }
-  });
+  }
 
-  popover.addEventListener('change', event => {
-    const target = event.target as HTMLElement | null;
-    if (!target || target.dataset.role !== 'toggle') {
+  function setBusy(next: boolean): void {
+    busy = next;
+    popover.classList.toggle('mvb-busy', next);
+    el.classList.toggle('mvb-busy', next);
+  }
+
+  /** 上层操作失败时只提示, 不关闭弹窗 */
+  async function run(action: () => Promise<void> | void): Promise<void> {
+    if (busy) {
       return;
     }
-    const row = target.closest<HTMLElement>('.mvb-row');
-    const id = Number(row?.dataset.id);
-    if (!Number.isInteger(id)) {
-      return;
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      console.warn('[楼层可见性] 操作失败', error);
+      toastr.error(errorMessage(error), '楼层可见性');
+    } finally {
+      setBusy(false);
+      render();
     }
-    const hidden = !(target as HTMLInputElement).checked;
-    void run(async () => {
-      await handlers.toggle(id, hidden);
-    });
+  }
+
+  // ── 事件 ──────────────────────────────────────────────
+  trigger.addEventListener('click', () => {
+    setOpen(!isOpen());
   });
 
   popover.addEventListener('click', event => {
     const target = event.target as HTMLElement | null;
-    if (!target) {
+    const control = target?.closest<HTMLElement>('[data-role]');
+    const role = control?.dataset.role;
+
+    if (role === 'close') {
+      setOpen(false);
       return;
     }
 
-    const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
+    if (role === 'compact') {
+      const next = !snapshot().prefs.compact;
+      handlers.setPrefs({ compact: next });
+      if (next) {
+        setOpen(false);
+      } else {
+        renderChrome();
+        renderBar();
+      }
+      return;
+    }
 
-    if (role === 'close') {
-      closePopover();
+    if (role === 'filter') {
+      const filter = control?.dataset.filter as Filter | undefined;
+      if (filter) {
+        handlers.setPrefs({ filter });
+        editor_id = null;
+        renderChrome();
+        renderList();
+        renderBar();
+        positionPopover();
+      }
       return;
     }
 
     if (role === 'all') {
-      const button = target.closest<HTMLElement>('[data-role="all"]')!;
-      const hidden = button.dataset.hidden === 'true';
+      const hidden = control?.dataset.hidden === 'true';
       void run(async () => {
         await handlers.bulk(hidden);
       });
@@ -324,83 +455,111 @@ export function mountBar(handlers: BarHandlers): Bar {
 
     if (role === 'clear-rules') {
       void run(async () => {
-        open_editor = null;
+        editor_id = null;
         await handlers.clearRules();
       });
       return;
     }
 
-    if (role === 'schedule') {
-      const row = target.closest<HTMLElement>('.mvb-row');
-      const id = Number(row?.dataset.id);
+    if (role === 'edit') {
+      const id = Number(control?.closest<HTMLElement>('.mvb-row')?.dataset.id);
       if (!Number.isInteger(id)) {
         return;
       }
-      open_editor = open_editor === id ? null : id;
-      renderPopover();
+      const captured = captureEditor();
+      editor_id = editor_id === id ? null : id;
+      renderList(captured);
       positionPopover();
       return;
     }
 
-    if (role === 'apply-rule') {
-      const editor = target.closest<HTMLElement>('[data-editor]');
-      const id = Number(editor?.dataset.editor);
-      const rounds = clampRounds(editor?.querySelector<HTMLInputElement>('.mvb-editor-rounds')?.value ?? '');
-      const action = (editor?.querySelector<HTMLSelectElement>('.mvb-editor-action')?.value ?? 'hide') as RuleAction;
+    if (role === 'toggle') {
+      const row = control?.closest<HTMLElement>('.mvb-row');
+      const id = Number(row?.dataset.id);
       if (!Number.isInteger(id)) {
         return;
       }
+      const floor = snapshot().floors.find(item => item.message_id === id);
+      if (!floor) {
+        return;
+      }
       void run(async () => {
-        await handlers.schedule(id, action, rounds);
-        open_editor = null;
+        await handlers.toggle(id, !floor.is_hidden);
       });
       return;
     }
 
-    if (role === 'clear-rule') {
-      const editor = target.closest<HTMLElement>('[data-editor]');
-      const id = Number(editor?.dataset.editor);
+    if (role === 'apply-rule') {
+      const box = control?.closest<HTMLElement>('[data-editor]');
+      const id = Number(box?.dataset.editor);
+      if (!Number.isInteger(id)) {
+        return;
+      }
+      const rounds = clampRounds(box?.querySelector<HTMLInputElement>('.mvb-editor-rounds')?.value ?? '');
+      const action = (box?.querySelector<HTMLSelectElement>('.mvb-editor-action')?.value ?? 'hide') as RuleAction;
+      void run(async () => {
+        await handlers.schedule(id, action, rounds);
+        editor_id = null;
+      });
+      return;
+    }
+
+    if (role === 'cancel-rule') {
+      const captured = captureEditor();
+      editor_id = null;
+      renderList(captured);
+      positionPopover();
+      return;
+    }
+
+    if (role === 'remove-rule') {
+      const box = control?.closest<HTMLElement>('[data-editor]');
+      const id = Number(box?.dataset.editor);
       if (!Number.isInteger(id)) {
         return;
       }
       void run(async () => {
         await handlers.schedule(id, null, 0);
-        open_editor = null;
+        editor_id = null;
       });
     }
   });
 
+  // 点空白处收起: 弹窗与工具栏都算「里面」
   const onPointerDown = (event: Event) => {
-    const target = event.target as Node | null;
-    if (!target || el.contains(target) || popover.contains(target)) {
+    if (isOpen() && !insideUi(event.target)) {
+      setOpen(false);
+    }
+  };
+  // 焦点移到别处时也收起, 但绝不能因为焦点落在弹窗内部就关掉
+  const onFocusIn = (event: Event) => {
+    if (isOpen() && !insideUi(event.target)) {
+      setOpen(false);
+    }
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') {
       return;
     }
-    closePopover();
-  };
-
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      closePopover();
+    if (editor_id !== null) {
+      const captured = captureEditor();
+      editor_id = null;
+      renderList(captured);
+      return;
+    }
+    if (isOpen()) {
+      setOpen(false);
     }
   };
-
   const onViewportChange = () => {
     if (isOpen()) {
       positionPopover();
     }
   };
 
-  // 手机上点输入框时收起弹窗, 避免挡住聊天或与软键盘叠加
-  const onFocusIn = (event: Event) => {
-    const target = event.target as Element | null;
-    if (!target || !el.contains(target)) {
-      closePopover();
-    }
-  };
-
   page_document.addEventListener('pointerdown', onPointerDown, true);
+  page_document.addEventListener('focusin', onFocusIn, true);
   page_document.addEventListener('keydown', onKeyDown);
-  page_document.addEventListener('focusin', onFocusIn);
   page_window.addEventListener('resize', onViewportChange);
   page_window.addEventListener('scroll', onViewportChange, true);
 
@@ -410,13 +569,13 @@ export function mountBar(handlers: BarHandlers): Bar {
     setVisible(visible: boolean) {
       el.hidden = !visible;
       if (!visible) {
-        closePopover();
+        setOpen(false);
       }
     },
     destroy() {
       page_document.removeEventListener('pointerdown', onPointerDown, true);
+      page_document.removeEventListener('focusin', onFocusIn, true);
       page_document.removeEventListener('keydown', onKeyDown);
-      page_document.removeEventListener('focusin', onFocusIn);
       page_window.removeEventListener('resize', onViewportChange);
       page_window.removeEventListener('scroll', onViewportChange, true);
       popover.remove();
