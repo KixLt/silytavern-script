@@ -5,6 +5,7 @@
 | 包 | 脚本 | 产物 |
 | --- | --- | --- |
 | `packages/plot-progress-bar` | 剧情进度状态栏 | `dist/build/index.js` |
+| `packages/message-visibility` | 楼层可见性 | `dist/message-visibility/index.js` |
 | `packages/ai-monitor` | TT \| AI 请求监控 | `dist/ai-monitor/TT-AI-Monitor.json` (+ 同名 `.js`) |
 
 本文件记录开发约定; 各脚本的功能说明见各自的 `packages/*/README.md`, 仓库总览见 [README.md](README.md)。
@@ -18,9 +19,10 @@ pnpm build       # pnpm -r: 每个包各自 build, 产物都写到仓库根 dist
 ```
 
 - `plot-progress-bar` 用 Vite; `build` 走 esbuild 压缩 (约 224 kB), `dev:build` 不压缩便于断点。
+- `message-visibility` 同样用 Vite + TS, 产物是 IIFE (`dist/message-visibility/index.js`), 没有独立联调服务: 需要联调时把它挂到 `pnpm dev` 托管的仓库根目录下即可。
 - `ai-monitor` 不经过打包器, 由 `packages/ai-monitor/scripts/build.mjs` 把 `src/tt-ai-monitor.js` 包成酒馆助手脚本 JSON。它**不写 `id`**(导入时由酒馆助手生成), 所以同一份源码永远产出同一份 JSON, CI 才能靠 `git status` 判断产物是否真的变化。
 
-发布产物是根目录的 `dist/`: 用户通过 jsDelivr 从 GitHub 直接读取, 所以 `dist/build/` 与 `dist/ai-monitor/` 都被有意保留在版本库里, 不要加进 `.gitignore`。
+发布产物是根目录的 `dist/`: 用户通过 jsDelivr 从 GitHub 直接读取, 所以 `dist/build/`、`dist/message-visibility/` 与 `dist/ai-monitor/` 都被有意保留在版本库里, 不要加进 `.gitignore`。
 
 `master` 上的 `.github/workflows/build.yml` 会在 `packages/**` 或构建配置变化时自动执行 `pnpm typecheck` + `pnpm build`, 若有差异就把整个 `dist/` 提交回 `master` (提交信息带 `[skip ci]`, 且只改 `dist`, 不会循环触发)。因此日常不需要手动提交产物, 本地 `pnpm build` 只用于自查预览。
 
@@ -71,6 +73,7 @@ jsDelivr 只读取**公开**仓库; 仓库为私有或改名时, 导入地址会
 - `packages/plot-progress-bar/src/index.ts`: `MAX_PENDING_MESSAGES`(单次同步上限)、`REFRESH_DEBOUNCE_MS`。
 - `packages/plot-progress-bar/src/ai.ts`: `SYSTEM_PROMPT`(进度字段与取值要求)、单条消息截断长度、输入总长度上限。
 - `packages/ai-monitor/src/tt-ai-monitor.js`: `MAX_RECORDS`(历史条数, 默认 35)、`PENDING_TIMEOUT_MS`、面板样式与高度上限。
+- `packages/message-visibility/src/state.ts`: `MAX_ROUNDS`(定时规则上限)、`DEFAULT_WINDOW_ROUNDS`、`STORAGE_KEY`。
 
 ## 目录
 
@@ -80,6 +83,7 @@ pnpm-workspace.yaml       packages: ['packages/*']
 tsconfig.base.json        各包共享的 TS 编译选项
 dist/                     发布产物 (CI 回写, jsDelivr 读取)
   build/index.js          剧情进度状态栏
+  message-visibility/     楼层可见性
   ai-monitor/             AI 请求监控 (JSON + 源文件)
 packages/
   plot-progress-bar/
@@ -92,6 +96,14 @@ packages/
       styles.css          注入到酒馆 <head> 的样式
       types/              酒馆助手全局接口的最小声明
     scripts/dev.mjs       本地联调 (HTTP + 监听构建 + socket.io)
+    vite.config.ts        产物路径指向仓库根 dist/
+  message-visibility/
+    src/
+      index.ts            挂载、事件监听、批量操作编排
+      state.ts            纯逻辑: 窗口边界、定时规则倒数、持久化结构
+      ui.ts               状态栏与楼层列表 (原生 DOM)
+      styles.css          注入到酒馆 <head> 的样式
+      types/              酒馆助手全局接口的最小声明
     vite.config.ts        产物路径指向仓库根 dist/
   ai-monitor/
     src/tt-ai-monitor.js  面板源码 (单文件 IIFE)

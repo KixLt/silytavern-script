@@ -1,0 +1,587 @@
+/* 楼层可见性状态栏 —— 视觉规范
+ *
+ * 北极星: 「不打扰的一行开关 + 一张能扫读的楼层表」
+ *  - 状态栏是常驻设施, 主角只有「隐藏了几楼」; 其余退成弱文字与图标。
+ *  - 弹窗是操作面板: 顶部工具固定、中间列表滚动、底部说明固定。
+ *  - 与仓库里的剧情进度状态栏共用同一套几何语言: 24 网格线稿、方头方角、无 emoji。
+ *
+ * 变量三层: 主题变量 (SillyTavern) → 本组件语义色 → 具体规则。
+ */
+
+.mvb-bar,
+.mvb-popover {
+  /* 主题变量 (缺失时用兜底值)。弱化色用 SmartThemeEmColor,
+   * 不要用 SmartThemeQuoteColor —— 很多主题里它是高饱和引用色。 */
+  --mvb-text: var(--SmartThemeBodyColor, #dcdcd2);
+  --mvb-muted: var(--SmartThemeEmColor, #919191);
+  --mvb-accent: var(--SmartThemeUnderlineColor, #bce7cf);
+  --mvb-bg: var(--SmartThemeBlurTintColor, #171717);
+
+  --mvb-line: color-mix(in srgb, var(--mvb-text) 14%, transparent);
+  --mvb-surface: color-mix(in srgb, var(--mvb-text) 8%, transparent);
+  --mvb-accent-soft: color-mix(in srgb, var(--mvb-accent) 22%, transparent);
+  --mvb-accent-line: color-mix(in srgb, var(--mvb-accent) 45%, transparent);
+  --mvb-danger: color-mix(in srgb, #c26666 72%, var(--mvb-text));
+
+  --mvb-radius: 10px;
+  --mvb-font: 13px;
+  --mvb-font-small: 12px;
+  --mvb-line-height: 1.62;
+}
+
+.mvb-bar,
+.mvb-bar *,
+.mvb-popover,
+.mvb-popover * {
+  box-sizing: border-box;
+}
+
+.mvb-bar [hidden],
+.mvb-popover [hidden] {
+  display: none !important;
+}
+
+/* ── 状态栏 ───────────────────────────────────────────── */
+
+.mvb-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 3px 4px;
+  font-family: inherit;
+  font-size: var(--mvb-font);
+  line-height: 1.3;
+  color: var(--mvb-text);
+  background: color-mix(in srgb, var(--mvb-bg) 84%, transparent);
+  border: 1px solid var(--mvb-line);
+  border-radius: var(--mvb-radius);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.mvb-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  line-height: 1.3;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.mvb-bar button:hover {
+  background: var(--mvb-surface);
+}
+
+.mvb-bar button:focus-visible {
+  outline: 2px solid var(--mvb-accent);
+  outline-offset: -2px;
+}
+
+.mvb-open {
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  color: var(--mvb-muted);
+}
+
+.mvb-open:hover {
+  color: var(--mvb-text);
+}
+
+.mvb-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.mvb-icon svg {
+  display: block;
+}
+
+.mvb-label {
+  font-weight: 500;
+}
+
+.mvb-caret {
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+/* 药丸: 隐藏楼层是主角, 定时规则是配角 */
+.mvb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 20px;
+  padding: 0 7px;
+  font-size: var(--mvb-font-small);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.mvb-hidden-pill {
+  /* 实心药丸: 主题强调色做底, 文字取主题底色 —— 任何主题下都是最大反差 */
+  color: var(--mvb-bg);
+  background: var(--mvb-accent);
+  border-radius: 9px;
+}
+
+.mvb-rule-pill {
+  color: var(--mvb-muted);
+  background: var(--mvb-surface);
+  border: 1px solid var(--mvb-line);
+  border-radius: 9px;
+}
+
+.mvb-rule-pill svg {
+  display: block;
+}
+
+/* ── 弹窗 ─────────────────────────────────────────────── */
+
+.mvb-popover {
+  position: fixed;
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: var(--mvb-font);
+  line-height: var(--mvb-line-height);
+  color: var(--mvb-text);
+  background: var(--mvb-bg);
+  border: 1px solid var(--mvb-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.mvb-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 14px 9px;
+  border-bottom: 1px solid var(--mvb-line);
+}
+
+.mvb-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.mvb-meta {
+  font-size: var(--mvb-font-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--mvb-muted);
+}
+
+/* 工具区固定: 一键操作与轮数窗口不随列表滚走 */
+.mvb-tools {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 14px 10px;
+  border-bottom: 1px solid var(--mvb-line);
+}
+
+.mvb-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.mvb-window-label {
+  font-size: var(--mvb-font-small);
+  color: var(--mvb-muted);
+}
+
+.mvb-window-input,
+.mvb-editor-rounds {
+  width: 56px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: var(--mvb-font-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--mvb-text);
+  text-align: center;
+  background: var(--mvb-surface);
+  border: 1px solid var(--mvb-line);
+  border-radius: 6px;
+}
+
+.mvb-window-input:focus-visible,
+.mvb-editor-rounds:focus-visible {
+  outline: 2px solid var(--mvb-accent-line);
+  outline-offset: 0;
+}
+
+.mvb-tools .mvb-primary {
+  margin-left: auto;
+}
+
+.mvb-ghost,
+.mvb-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: var(--mvb-font-small);
+  color: var(--mvb-text);
+  background: transparent;
+  border: 1px solid var(--mvb-line);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.mvb-ghost:hover {
+  background: var(--mvb-surface);
+}
+
+.mvb-ghost.mvb-danger {
+  color: var(--mvb-danger);
+}
+
+.mvb-primary {
+  font-weight: 600;
+  color: var(--mvb-accent);
+  background: var(--mvb-accent-soft);
+  border-color: var(--mvb-accent-line);
+}
+
+.mvb-primary:hover {
+  background: color-mix(in srgb, var(--mvb-accent) 30%, transparent);
+}
+
+.mvb-ghost:focus-visible,
+.mvb-primary:focus-visible {
+  outline: 2px solid var(--mvb-accent);
+  outline-offset: 1px;
+}
+
+/* 列表独立滚动 */
+.mvb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 6px 8px 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mvb-line) transparent;
+}
+
+.mvb-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mvb-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--mvb-text) 12%, transparent);
+  border-radius: 4px;
+}
+
+.mvb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mvb-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 7px;
+}
+
+.mvb-row:hover {
+  background: var(--mvb-surface);
+}
+
+.mvb-no {
+  flex: 0 0 auto;
+  min-width: 30px;
+  font-size: var(--mvb-font-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--mvb-muted);
+}
+
+.mvb-role {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--mvb-muted);
+  background: var(--mvb-surface);
+  border-radius: 8px;
+}
+
+.mvb-role-assistant {
+  color: var(--mvb-accent);
+  background: var(--mvb-accent-soft);
+}
+
+.mvb-excerpt {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--mvb-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mvb-dim {
+  color: var(--mvb-muted);
+}
+
+/* 隐藏的楼层: 文字退后 + 划线, 状态不只靠开关的颜色 */
+.mvb-row.is-hidden .mvb-excerpt {
+  color: var(--mvb-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--mvb-muted) 60%, transparent);
+}
+
+.mvb-row.is-hidden .mvb-no {
+  color: var(--mvb-muted);
+}
+
+.mvb-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--mvb-muted);
+  background: var(--mvb-surface);
+  border: 1px solid var(--mvb-line);
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.mvb-clock {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--mvb-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mvb-clock:hover:not(:disabled) {
+  color: var(--mvb-accent);
+  background: var(--mvb-surface);
+}
+
+.mvb-clock:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+/* 开关 */
+.mvb-switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  cursor: pointer;
+}
+
+.mvb-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.mvb-track {
+  position: relative;
+  display: block;
+  width: 34px;
+  height: 18px;
+  background: color-mix(in srgb, var(--mvb-text) 10%, transparent);
+  border: 1px solid var(--mvb-line);
+  border-radius: 9px;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.mvb-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--mvb-muted);
+  border-radius: 50%;
+  transition: transform 0.14s ease, background-color 0.14s ease;
+}
+
+.mvb-switch input:checked + .mvb-track {
+  background: var(--mvb-accent-soft);
+  border-color: var(--mvb-accent-line);
+}
+
+.mvb-switch input:checked + .mvb-track::after {
+  background: var(--mvb-accent);
+  transform: translateX(16px);
+}
+
+.mvb-switch input:focus-visible + .mvb-track {
+  outline: 2px solid var(--mvb-accent);
+  outline-offset: 2px;
+}
+
+.mvb-switch input:disabled + .mvb-track {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* 定时规则的内联编辑行 */
+.mvb-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 2px 6px 6px;
+  padding: 7px 9px;
+  font-size: var(--mvb-font-small);
+  background: var(--mvb-surface);
+  border: 1px dashed var(--mvb-line);
+  border-radius: 8px;
+}
+
+.mvb-editor-label {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--mvb-muted);
+}
+
+.mvb-editor-action {
+  padding: 3px 6px;
+  font: inherit;
+  font-size: var(--mvb-font-small);
+  color: var(--mvb-text);
+  background: var(--mvb-bg);
+  border: 1px solid var(--mvb-line);
+  border-radius: 6px;
+}
+
+.mvb-editor-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.mvb-empty {
+  padding: 10px 6px;
+  font-size: var(--mvb-font);
+  color: var(--mvb-muted);
+}
+
+.mvb-foot {
+  flex: none;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px 10px;
+  border-top: 1px solid var(--mvb-line);
+}
+
+.mvb-note {
+  font-size: var(--mvb-font-small);
+  line-height: 1.5;
+  color: var(--mvb-muted);
+}
+
+/* 操作进行中: 只降低可点性, 不遮挡内容 */
+.mvb-popover.mvb-busy .mvb-primary,
+.mvb-popover.mvb-busy .mvb-ghost,
+.mvb-popover.mvb-busy .mvb-clock,
+.mvb-popover.mvb-busy .mvb-switch {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.mvb-popover.mvb-busy {
+  cursor: progress;
+}
+
+/* ── 窄屏 / 手机 ──────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .mvb-bar {
+    margin-bottom: 4px;
+    padding: 2px 3px;
+  }
+
+  .mvb-bar button {
+    min-height: 38px;
+    padding: 6px;
+  }
+
+  .mvb-head {
+    padding: 11px 12px 8px;
+  }
+
+  .mvb-tools {
+    padding: 8px 12px 9px;
+  }
+
+  .mvb-body {
+    padding: 5px 6px 6px;
+  }
+
+  .mvb-foot {
+    padding: 8px 12px 9px;
+  }
+
+  .mvb-ghost,
+  .mvb-primary {
+    min-height: 34px;
+  }
+}
+
+@media (pointer: coarse) {
+  .mvb-bar button {
+    min-height: 40px;
+  }
+
+  .mvb-clock {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mvb-ghost,
+  .mvb-primary {
+    min-height: 38px;
+  }
+}
