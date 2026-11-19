@@ -45,6 +45,10 @@ const ICON_COLLAPSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="non
 const ICON_EXPAND = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14"/><path d="M7.5 16.5l4.5-4.5 4.5 4.5"/></svg>`;
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 const ICON_CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 14.5L12 9l5.5 5.5"/></svg>`;
+const ICON_CHEVRON_DOWN = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5L12 15l5.5-5.5"/></svg>`;
+const ICON_CHECK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.5l4.2 4.2L18.5 8"/></svg>`;
+const ICON_CROSS = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>`;
+const ICON_TRASH = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V4.8h5V7"/><path d="M6.5 7l.9 12.1a1.4 1.4 0 0 0 1.4 1.3h6.4a1.4 1.4 0 0 0 1.4-1.3L17.5 7"/></svg>`;
 
 const ROLE_TEXT: Record<Floor['role'], string> = {
   system: '系统',
@@ -105,9 +109,22 @@ export function mountBar(handlers: BarHandlers): Bar {
   const rules_badge = el.querySelector<HTMLElement>('[data-badge="rules"]')!;
   const rules_count = el.querySelector<HTMLElement>('[data-badge-rules]')!;
 
-  let editor_id: number | null = null;
+  /** 定时编辑器的草稿: 值存在这里, 后台刷新重建列表时不会丢 */
+  type EditorState = {
+    id: number;
+    rounds: number;
+    action: RuleAction;
+    base_rounds: number;
+    base_action: RuleAction;
+    has_rule: boolean;
+  };
+
+  let editor: EditorState | null = null;
   let busy = false;
   let shell_ready = false;
+
+  const isDirty = (state: EditorState | null): boolean =>
+    Boolean(state && (state.rounds !== state.base_rounds || state.action !== state.base_action));
 
   const snapshot = () => handlers.snapshot();
   const isOpen = () => !popover.hidden;
@@ -180,68 +197,176 @@ export function mountBar(handlers: BarHandlers): Bar {
     shell_ready = true;
   }
 
-  // ── 列表渲染 ──────────────────────────────────────────
-  function rowHtml(floor: Floor, rule: Rule | undefined): string {
+  // ── 列表渲染 · Accordion ──────────────────────────────
+  //
+  // 每层是一个 accordion item: 头部是触发器 + 可见性开关, 面板里放定时编辑。
+  // 结构照 shadcn 的 accordion (`data-state` 驱动 + 内容区高度补间)。
+  function panelId(id: number): string {
+    return `mvb-acc-panel-${id}`;
+  }
+
+  function itemHtml(floor: Floor, rule: Rule | undefined): string {
     const hidden = floor.is_hidden;
+    const open = editor?.id === floor.message_id;
     const chip = rule
       ? `<span class="mvb-chip" title="定时规则">${ICON_CLOCK}${escapeHtml(describeRule(rule))}</span>`
       : '';
     return (
-      `<li class="mvb-row${hidden ? ' is-hidden' : ''}" data-id="${floor.message_id}">` +
+      `<li class="mvb-acc${hidden ? ' is-hidden' : ''}" data-id="${floor.message_id}" data-state="${open ? 'open' : 'closed'}">` +
+      `<div class="mvb-acc-head">` +
+      `<button class="mvb-acc-trigger" type="button" data-role="edit" aria-expanded="${open}" aria-controls="${panelId(floor.message_id)}" title="定时规则">` +
+      `<span class="mvb-acc-chevron">${ICON_CHEVRON_DOWN}</span>` +
       `<span class="mvb-row-id">#${floor.message_id}</span>` +
       `<span class="mvb-role mvb-role-${floor.role}">${ROLE_TEXT[floor.role]}</span>` +
-      `<button class="mvb-row-body" type="button" data-role="edit" title="设置定时规则">` +
-      `<span class="mvb-excerpt">${escapeHtml(floor.excerpt) || '<span class="mvb-dim">（空）</span>'}</span>${chip}` +
+      `<span class="mvb-excerpt">${escapeHtml(floor.excerpt) || '<span class="mvb-dim">（空）</span>'}</span>` +
+      `${chip}` +
       `</button>` +
       `<button class="mvb-switch" type="button" role="switch" data-role="toggle" aria-checked="${!hidden}" aria-label="对 AI ${hidden ? '隐藏' : '可见'}">` +
       `<span class="mvb-switch-thumb"></span></button>` +
+      `</div>` +
+      `<div class="mvb-acc-panel" id="${panelId(floor.message_id)}" role="region" data-state="${open ? 'open' : 'closed'}">` +
+      `<div class="mvb-acc-panel-inner"></div>` +
+      `</div>` +
       `</li>`
     );
   }
 
-  function editorHtml(floor: Floor, rule: Rule | undefined): string {
-    const action = rule?.action ?? 'hide';
-    const rounds = rule?.rounds_left ?? 3;
+  /** 面板内容: 一行里放轮数、到点开关和操作按钮, 不额外占行 */
+  function editorHtml(state: EditorState): string {
+    const dirty = isDirty(state);
+    const hide = state.action === 'hide';
     return (
-      `<li class="mvb-editor" data-editor="${floor.message_id}">` +
-      `<span class="mvb-editor-text">#${floor.message_id} 在</span>` +
-      `<input class="mvb-input mvb-editor-rounds" type="number" min="${MIN_ROUNDS}" max="${MAX_ROUNDS}" inputmode="numeric" value="${rounds}" aria-label="轮数">` +
+      `<div class="mvb-editor" data-editor="${state.id}">` +
+      `<span class="mvb-editor-text">在</span>` +
+      `<input class="mvb-input mvb-editor-rounds" type="number" min="${MIN_ROUNDS}" max="${MAX_ROUNDS}" inputmode="numeric"` +
+      ` value="${state.rounds}" aria-label="轮数">` +
       `<span class="mvb-editor-text">轮后</span>` +
-      `<select class="mvb-select mvb-editor-action" aria-label="到点后的可见性">` +
-      `<option value="hide"${action === 'hide' ? ' selected' : ''}>隐藏</option>` +
-      `<option value="show"${action === 'show' ? ' selected' : ''}>可见</option>` +
-      `</select>` +
-      `<span class="mvb-editor-actions">` +
-      `<button class="mvb-btn mvb-btn-primary" type="button" data-role="apply-rule">确定</button>` +
-      `<button class="mvb-btn" type="button" data-role="cancel-rule">取消</button>` +
-      (rule ? `<button class="mvb-btn mvb-btn-danger" type="button" data-role="remove-rule">删除规则</button>` : '') +
-      `</span></li>`
+      `<span class="mvb-editor-toggle">` +
+      `<button class="mvb-switch" type="button" role="switch" data-role="rule-action" aria-checked="${hide}" aria-label="到点后${hide ? '隐藏' : '可见'}">` +
+      `<span class="mvb-switch-thumb"></span></button>` +
+      `<span class="mvb-editor-action-label">${hide ? '隐藏' : '可见'}</span>` +
+      `</span>` +
+      `<span class="mvb-editor-actions"${dirty ? '' : ' hidden'}>` +
+      `<button class="mvb-icon-btn mvb-icon-primary" type="button" data-role="apply-rule" title="确定" aria-label="确定">${ICON_CHECK}</button>` +
+      `<button class="mvb-icon-btn" type="button" data-role="cancel-rule" title="取消" aria-label="取消">${ICON_CROSS}</button>` +
+      `</span>` +
+      (state.has_rule
+        ? `<button class="mvb-icon-btn mvb-icon-danger" type="button" data-role="remove-rule" title="删除规则" aria-label="删除规则">${ICON_TRASH}</button>`
+        : '') +
+      `</div>`
     );
   }
 
-  /** 重渲染列表前记下编辑器里正在输入的内容, 免得后台刷新把用户输入冲掉 */
-  function captureEditor() {
-    if (editor_id === null) {
-      return null;
-    }
-    const box = popover.querySelector<HTMLElement>(`[data-editor="${editor_id}"]`);
-    if (!box) {
-      return null;
-    }
-    return {
-      rounds: box.querySelector<HTMLInputElement>('.mvb-editor-rounds')?.value ?? '',
-      action: box.querySelector<HTMLSelectElement>('.mvb-editor-action')?.value ?? 'hide',
-      focused: box.contains(page_document.activeElement),
-    };
+  function findItem(id: number): HTMLElement | null {
+    return popover.querySelector<HTMLElement>(`.mvb-acc[data-id="${id}"]`);
   }
 
-  function renderList(captured: ReturnType<typeof captureEditor> = null): void {
+  function mountEditor(item: HTMLElement, state: EditorState): void {
+    const inner = item.querySelector<HTMLElement>('.mvb-acc-panel-inner');
+    if (inner) {
+      inner.innerHTML = editorHtml(state);
+    }
+  }
+
+  function unmountEditor(item: HTMLElement): void {
+    item.querySelector<HTMLElement>('.mvb-acc-panel-inner')?.replaceChildren();
+  }
+
+  function setItemState(item: HTMLElement, open: boolean): void {
+    item.dataset.state = open ? 'open' : 'closed';
+    item.querySelector('.mvb-acc-trigger')?.setAttribute('aria-expanded', String(open));
+    const panel = item.querySelector<HTMLElement>('.mvb-acc-panel');
+    if (panel) {
+      panel.dataset.state = open ? 'open' : 'closed';
+    }
+  }
+
+  /** 只影响当前展开项, 不重建整个列表 —— 高度补间才有东西可过渡 */
+  function collapseEditor(): HTMLElement | null {
+    if (!editor) {
+      return null;
+    }
+    const item = findItem(editor.id);
+    editor = null;
+    if (!item) {
+      return null;
+    }
+    setItemState(item, false);
+    // 等高度收完再清内容, 否则会瞬间塌陷
+    page_window.setTimeout(() => {
+      if (item.dataset.state === 'closed') {
+        unmountEditor(item);
+      }
+    }, 180);
+    return item;
+  }
+
+  function expandEditor(floor: Floor, rule: Rule | undefined): void {
+    const item = findItem(floor.message_id);
+    if (!item) {
+      return;
+    }
+    const state: EditorState = {
+      id: floor.message_id,
+      rounds: rule?.rounds_left ?? 3,
+      action: rule?.action ?? 'hide',
+      base_rounds: rule?.rounds_left ?? 3,
+      base_action: rule?.action ?? 'hide',
+      has_rule: Boolean(rule),
+    };
+    editor = state;
+    mountEditor(item, state);
+    // 内容先落地, 下一帧再展开, 这样 grid-rows 才有起点
+    page_window.requestAnimationFrame(() => {
+      if (editor?.id === state.id) {
+        setItemState(item, true);
+      }
+    });
+  }
+
+  function toggleEditor(id: number): void {
+    const { floors, rules } = snapshot();
+    const isSame = editor?.id === id;
+    collapseEditor();
+    if (isSame) {
+      return;
+    }
+    const floor = floors.find(item => item.message_id === id);
+    if (!floor) {
+      return;
+    }
+    expandEditor(floor, findRule(rules, id));
+  }
+
+  /** 输入或开关变化后重算「是否有改动」, 决定确认/取消要不要出现 */
+  function syncDirty(): void {
+    const box = editor && popover.querySelector<HTMLElement>(`[data-editor="${editor.id}"]`);
+    if (!box || !editor) {
+      return;
+    }
+    const actions = box.querySelector<HTMLElement>('.mvb-editor-actions');
+    if (actions) {
+      actions.hidden = !isDirty(editor);
+    }
+    const label = box.querySelector<HTMLElement>('.mvb-editor-action-label');
+    const toggle = box.querySelector<HTMLElement>('[data-role="rule-action"]');
+    if (label) {
+      label.textContent = editor.action === 'hide' ? '隐藏' : '可见';
+    }
+    if (toggle) {
+      toggle.setAttribute('aria-checked', String(editor.action === 'hide'));
+      toggle.setAttribute('aria-label', `到点后${editor.action === 'hide' ? '隐藏' : '可见'}`);
+    }
+  }
+
+  function renderList(): void {
     const { floors, rules, prefs } = snapshot();
     const visible = filterFloors(floors, prefs.filter);
 
-    // 筛选后编辑器指向的楼层不在列表里, 直接收起
-    if (editor_id !== null && !visible.some(floor => floor.message_id === editor_id)) {
-      editor_id = null;
+    // 筛选后展开项不在列表里, 直接收起
+    const current = editor;
+    if (current && !visible.some(floor => floor.message_id === current.id)) {
+      editor = null;
     }
 
     const ordered = visible.slice().sort((a, b) => b.message_id - a.message_id);
@@ -250,25 +375,29 @@ export function mountBar(handlers: BarHandlers): Bar {
       return;
     }
 
+    const open_state = editor;
+    const focused_rounds = Boolean(
+      open_state &&
+        popover.querySelector(`[data-editor="${open_state.id}"] .mvb-editor-rounds`) === page_document.activeElement,
+    );
+
     list.innerHTML = ordered.length
-      ? ordered.map(floor => rowHtml(floor, findRule(rules, floor.message_id))).join('')
+      ? ordered.map(floor => itemHtml(floor, findRule(rules, floor.message_id))).join('')
       : `<li class="mvb-empty">${prefs.filter === 'all' ? '这个聊天还没有楼层。' : '当前筛选下没有楼层。'}</li>`;
 
-    if (editor_id !== null) {
-      const floor = visible.find(item => item.message_id === editor_id);
-      const row = list.querySelector<HTMLElement>(`.mvb-row[data-id="${editor_id}"]`);
-      if (floor && row) {
-        row.insertAdjacentHTML('afterend', editorHtml(floor, findRule(rules, floor.message_id)));
-        const box = list.querySelector<HTMLElement>(`[data-editor="${editor_id}"]`);
-        if (box && captured) {
-          const rounds = box.querySelector<HTMLInputElement>('.mvb-editor-rounds');
-          const action = box.querySelector<HTMLSelectElement>('.mvb-editor-action');
-          if (rounds && captured.rounds) rounds.value = captured.rounds;
-          if (action) action.value = captured.action;
-          if (captured.focused) rounds?.focus();
+    // 重建列表后把展开项的内容补回去 (草稿值在 editor 里)
+    if (editor) {
+      const item = findItem(editor.id);
+      if (item) {
+        mountEditor(item, editor);
+        const input = item.querySelector<HTMLInputElement>('.mvb-editor-rounds');
+        if (focused_rounds && input) {
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
         }
       } else {
-        editor_id = null;
+        editor = null;
       }
     }
   }
@@ -311,9 +440,8 @@ export function mountBar(handlers: BarHandlers): Bar {
     if (!shell_ready) {
       renderShell();
     }
-    const captured = captureEditor();
     renderChrome();
-    renderList(captured);
+    renderList();
   }
 
   function render(): void {
@@ -368,7 +496,7 @@ export function mountBar(handlers: BarHandlers): Bar {
       // 打开后把焦点交给弹窗, 键盘用户也能用 Esc 关掉
       popover.querySelector<HTMLElement>('.mvb-segment.is-active')?.focus();
     } else {
-      editor_id = null;
+      editor = null;
       shell_ready = false;
     }
   }
@@ -427,7 +555,8 @@ export function mountBar(handlers: BarHandlers): Bar {
       const filter = control?.dataset.filter as Filter | undefined;
       if (filter) {
         handlers.setPrefs({ filter });
-        editor_id = null;
+        collapseEditor();
+        editor = null;
         renderChrome();
         renderList();
         renderBar();
@@ -455,27 +584,25 @@ export function mountBar(handlers: BarHandlers): Bar {
 
     if (role === 'clear-rules') {
       void run(async () => {
-        editor_id = null;
+        collapseEditor();
+        editor = null;
         await handlers.clearRules();
       });
       return;
     }
 
     if (role === 'edit') {
-      const id = Number(control?.closest<HTMLElement>('.mvb-row')?.dataset.id);
+      const id = Number(control?.closest<HTMLElement>('.mvb-acc')?.dataset.id);
       if (!Number.isInteger(id)) {
         return;
       }
-      const captured = captureEditor();
-      editor_id = editor_id === id ? null : id;
-      renderList(captured);
+      toggleEditor(id);
       positionPopover();
       return;
     }
 
     if (role === 'toggle') {
-      const row = control?.closest<HTMLElement>('.mvb-row');
-      const id = Number(row?.dataset.id);
+      const id = Number(control?.closest<HTMLElement>('.mvb-acc')?.dataset.id);
       if (!Number.isInteger(id)) {
         return;
       }
@@ -489,40 +616,57 @@ export function mountBar(handlers: BarHandlers): Bar {
       return;
     }
 
-    if (role === 'apply-rule') {
-      const box = control?.closest<HTMLElement>('[data-editor]');
-      const id = Number(box?.dataset.editor);
-      if (!Number.isInteger(id)) {
+    // 编辑器里的到点开关: 只改草稿, 不动真实楼层
+    if (role === 'rule-action') {
+      if (!editor) {
         return;
       }
-      const rounds = clampRounds(box?.querySelector<HTMLInputElement>('.mvb-editor-rounds')?.value ?? '');
-      const action = (box?.querySelector<HTMLSelectElement>('.mvb-editor-action')?.value ?? 'hide') as RuleAction;
+      editor.action = editor.action === 'hide' ? 'show' : 'hide';
+      syncDirty();
+      return;
+    }
+
+    if (role === 'apply-rule') {
+      const state = editor;
+      if (!state) {
+        return;
+      }
       void run(async () => {
-        await handlers.schedule(id, action, rounds);
-        editor_id = null;
+        await handlers.schedule(state.id, state.action, state.rounds);
+        collapseEditor();
+        editor = null;
       });
       return;
     }
 
     if (role === 'cancel-rule') {
-      const captured = captureEditor();
-      editor_id = null;
-      renderList(captured);
+      collapseEditor();
+      editor = null;
       positionPopover();
       return;
     }
 
     if (role === 'remove-rule') {
-      const box = control?.closest<HTMLElement>('[data-editor]');
-      const id = Number(box?.dataset.editor);
-      if (!Number.isInteger(id)) {
+      const state = editor;
+      if (!state) {
         return;
       }
       void run(async () => {
-        await handlers.schedule(id, null, 0);
-        editor_id = null;
+        await handlers.schedule(state.id, null, 0);
+        collapseEditor();
+        editor = null;
       });
     }
+  });
+
+  // 输入轮数 / 切换到点开关后, 才让确定取消出现
+  popover.addEventListener('input', event => {
+    const input = (event.target as HTMLElement | null)?.closest<HTMLInputElement>('.mvb-editor-rounds');
+    if (!input || !editor) {
+      return;
+    }
+    editor.rounds = clampRounds(input.value);
+    syncDirty();
   });
 
   // 点空白处收起: 弹窗与工具栏都算「里面」
@@ -541,10 +685,10 @@ export function mountBar(handlers: BarHandlers): Bar {
     if (event.key !== 'Escape') {
       return;
     }
-    if (editor_id !== null) {
-      const captured = captureEditor();
-      editor_id = null;
-      renderList(captured);
+    if (editor) {
+      collapseEditor();
+      editor = null;
+      positionPopover();
       return;
     }
     if (isOpen()) {
