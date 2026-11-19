@@ -29,6 +29,11 @@
   --mvb-font-sm: 12px;
   --mvb-font-xs: 11px;
   --mvb-ease: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Accordion 内容缩进: 与 trigger 的正文左端对齐
+   * = 头部左内边距 + chevron 宽度 + trigger 内 gap (6 + 12 + 6) */
+  --mvb-acc-pad-x: 6px;
+  --mvb-acc-indent: 24px;
 }
 
 .mvb-bar,
@@ -603,17 +608,22 @@
 
 /* ── 定时编辑器 (单行: 轮数 · 到点开关 · 操作) ─────────── */
 
+/*
+ * 展开内容不另起一个「卡片」: 无底色、无描边, 左侧退到与 trigger 正文同一条
+ * 竖线上 (chevron 之后), 看上去就是这一行的延续。
+ */
 .mvb-editor {
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
-  margin: 0 6px 6px;
-  padding: 6px 8px;
+  margin: 0 var(--mvb-acc-pad-x) 4px;
+  /* 左边距 + 这里的左内边距 = --mvb-acc-indent */
+  padding: 2px 0 4px calc(var(--mvb-acc-indent) - var(--mvb-acc-pad-x));
   font-size: var(--mvb-font-sm);
-  background: var(--mvb-muted);
-  border: 1px solid var(--mvb-border);
-  border-radius: 6px;
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 
 .mvb-editor-text {
@@ -773,9 +783,15 @@
   }
 
   /* 窄屏也要保持单行: 只压间距, 操作按钮不另起一行 */
+  .mvb-popover {
+    /* 手机端头部左内边距 4px, chevron 12px, trigger 内 gap 6px → 缩进 22px */
+    --mvb-acc-pad-x: 4px;
+    --mvb-acc-indent: 22px;
+  }
+
   .mvb-editor {
     gap: 5px;
-    padding: 7px 8px;
+    padding: 2px 0 4px calc(var(--mvb-acc-indent) - var(--mvb-acc-pad-x));
   }
 
   .mvb-editor-rounds {
