@@ -38,6 +38,11 @@
   box-sizing: border-box;
 }
 
+/* `hidden` 属性要显式落到 display 上: 根元素自带 display (弹窗是 flex),
+ * 浏览器默认的 [hidden] { display: none } 属于 UA 样式, 会被类选择器盖掉,
+ * 结果就是属性设上了界面却没消失。 */
+.mvb-bar[hidden],
+.mvb-popover[hidden],
 .mvb-bar [hidden],
 .mvb-popover [hidden] {
   display: none !important;
