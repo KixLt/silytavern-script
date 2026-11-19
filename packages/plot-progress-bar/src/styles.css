@@ -193,13 +193,12 @@
   flex-direction: column;
   overflow: hidden;
   color: var(--ppb-text);
-  /* 档案卡要能读: 不透明, 不让背后的聊天气泡透上来 */
+  /* 档案卡要能读: 不透明, 不让背后的聊天气泡透上来;
+   * 面板既不透明, 背景模糊就没有意义, 高度感用一个紧的阴影表达 */
   background: var(--ppb-bg);
   border: 1px solid var(--ppb-line);
-  border-radius: 14px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34);
 }
 
 .ppb-popover[hidden] {
@@ -288,7 +287,8 @@
   list-style: none;
 }
 
-/* 符号列 + 内容列: 状态不只看颜色, 换行后文字有悬挂缩进 */
+/* 符号列 + 内容列: 状态不只看颜色, 换行后文字有悬挂缩进。
+ * 列宽由 flex-basis 固定, 不需要等宽字体 —— 符号列不是代码 */
 .ppb-row {
   display: flex;
   gap: 8px;
@@ -299,7 +299,6 @@
 
 .ppb-mark {
   flex: 0 0 12px;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
   line-height: inherit;
   text-align: center;

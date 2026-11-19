@@ -159,12 +159,11 @@
   font-size: var(--mvb-font);
   line-height: var(--mvb-line-height);
   color: var(--mvb-text);
+  /* 面板不透明, 所以不需要背景模糊; 高度感只留一个紧的阴影 */
   background: var(--mvb-bg);
   border: 1px solid var(--mvb-line);
-  border-radius: 14px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34);
 }
 
 .mvb-head {

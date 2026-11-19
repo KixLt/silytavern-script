@@ -196,6 +196,21 @@
         style.id = STYLE_ID;
         style.textContent = `
 #${PANEL_ID} {
+    /* 主题变量 → 本组件语义色。
+     * 状态色从正文色调和, 深色/浅色主题都读得清, 也不用框架默认的那套糖果色;
+     * 弱化色用 SmartThemeEmColor, 不要用 SmartThemeQuoteColor (很多主题里是高饱和引用色)。 */
+    --ttam-text: var(--SmartThemeBodyColor, #e8e8ea);
+    --ttam-muted: var(--SmartThemeEmColor, #919191);
+    --ttam-accent: var(--SmartThemeUnderlineColor, #bce7cf);
+    --ttam-bg: var(--SmartThemeBlurTintColor, #14161c);
+    --ttam-line: color-mix(in srgb, var(--ttam-text) 14%, transparent);
+    --ttam-surface: color-mix(in srgb, var(--ttam-text) 8%, transparent);
+    --ttam-accent-soft: color-mix(in srgb, var(--ttam-accent) 22%, transparent);
+    --ttam-accent-line: color-mix(in srgb, var(--ttam-accent) 45%, transparent);
+    --ttam-ok: color-mix(in srgb, #4fae6a 78%, var(--ttam-text));
+    --ttam-fail: color-mix(in srgb, #c26666 72%, var(--ttam-text));
+    --ttam-warn: color-mix(in srgb, #c9962f 82%, var(--ttam-text));
+
     position: fixed;
     z-index: 9999;
     display: flex;
@@ -207,12 +222,12 @@
     font-family: var(--mainFontFamily, "Segoe UI", "Microsoft YaHei", sans-serif);
     font-size: 12px;
     line-height: 1.45;
-    color: var(--SmartThemeBodyColor, #e8e8ea);
-    background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #14161c) 90%, transparent);
-    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, .16));
+    color: var(--ttam-text);
+    background: var(--ttam-bg);
+    border: 1px solid var(--ttam-line);
     border-radius: 10px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, .38);
-    backdrop-filter: blur(10px);
+    /* 一个小而紧的高度感: 模糊不超过控件自身尺寸 */
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .32);
     overflow: hidden;
     user-select: none;
 }
@@ -226,18 +241,15 @@
     gap: 6px;
     padding: 7px 6px 7px 9px;
     cursor: grab;
-    background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0));
 }
 #${PANEL_ID} .ttam-head:active { cursor: grabbing; }
 #${PANEL_ID} .ttam-dot {
     width: 8px; height: 8px; border-radius: 50%;
-    background: #7a7a86; flex: 0 0 auto;
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, .25);
+    background: var(--ttam-muted); flex: 0 0 auto;
 }
-#${PANEL_ID} .ttam-dot.is-ok { background: #4caf7d; }
-#${PANEL_ID} .ttam-dot.is-fail { background: #e0555a; }
-#${PANEL_ID} .ttam-dot.is-busy { background: #e0b24a; animation: ttam-pulse 1.1s ease-in-out infinite; }
-@keyframes ttam-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+#${PANEL_ID} .ttam-dot.is-ok { background: var(--ttam-ok); }
+#${PANEL_ID} .ttam-dot.is-fail { background: var(--ttam-fail); }
+#${PANEL_ID} .ttam-dot.is-busy { background: var(--ttam-warn); }
 #${PANEL_ID} .ttam-title { font-weight: 600; letter-spacing: .3px; }
 #${PANEL_ID} .ttam-badge {
     margin-left: auto; font-size: 11px; opacity: .72;
@@ -248,14 +260,14 @@
     width: 20px; height: 20px; line-height: 1; padding: 0; border-radius: 4px;
     opacity: .7; font-size: 13px; flex: 0 0 auto;
 }
-#${PANEL_ID} .ttam-btn:hover { opacity: 1; background: rgba(255, 255, 255, .12); }
-#${PANEL_ID} .ttam-btn.ttam-close:hover { background: rgba(224, 85, 90, .28); color: #ff9a9d; }
+#${PANEL_ID} .ttam-btn:hover { opacity: 1; background: var(--ttam-surface); }
+#${PANEL_ID} .ttam-btn.ttam-close:hover { background: color-mix(in srgb, var(--ttam-fail) 24%, transparent); color: var(--ttam-fail); }
 #${PANEL_ID} .ttam-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0;
     padding: 0;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, .12));
+    border-bottom: 1px solid var(--ttam-line);
 }
 #${PANEL_ID} .ttam-tab {
     border: 0; background: transparent; color: inherit; cursor: pointer;
@@ -264,10 +276,10 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     opacity: .6; border-bottom: 2px solid transparent; border-radius: 0;
 }
-#${PANEL_ID} .ttam-tab:hover { opacity: .9; background: rgba(255, 255, 255, .06); }
+#${PANEL_ID} .ttam-tab:hover { opacity: .9; background: var(--ttam-surface); }
 #${PANEL_ID} .ttam-tab.is-active {
     opacity: 1; font-weight: 600;
-    border-bottom-color: var(--SmartThemeQuoteColor, #4c8dff);
+    border-bottom-color: var(--ttam-accent);
 }
 #${PANEL_ID} .ttam-tab-count {
     margin-left: 4px; font-size: 10px; opacity: .6; font-variant-numeric: tabular-nums;
@@ -285,8 +297,8 @@
 #${PANEL_ID} .ttam-view { display: none; }
 #${PANEL_ID} .ttam-view.is-active { display: block; }
 #${PANEL_ID} .ttam-status-card {
-    background: rgba(255, 255, 255, .05);
-    border: 1px solid rgba(255, 255, 255, .07);
+    background: var(--ttam-surface);
+    border: 1px solid var(--ttam-line);
     border-radius: 7px;
     padding: 5px 7px;
     margin-bottom: 6px;
@@ -296,9 +308,9 @@
     flex-wrap: wrap; min-width: 0;
 }
 #${PANEL_ID} .ttam-state { font-weight: 600; flex: 0 0 auto; }
-#${PANEL_ID} .ttam-state.is-ok { color: #6fd39f; }
-#${PANEL_ID} .ttam-state.is-fail { color: #ff8589; }
-#${PANEL_ID} .ttam-state.is-busy { color: #f0c463; }
+#${PANEL_ID} .ttam-state.is-ok { color: var(--ttam-ok); }
+#${PANEL_ID} .ttam-state.is-fail { color: var(--ttam-fail); }
+#${PANEL_ID} .ttam-state.is-busy { color: var(--ttam-warn); }
 #${PANEL_ID} .ttam-state.is-idle { color: inherit; opacity: .7; }
 #${PANEL_ID} .ttam-sub {
     color: inherit; opacity: .62; font-size: 11px;
@@ -310,8 +322,8 @@
     gap: 6px; margin: 7px 0 4px;
 }
 #${PANEL_ID} .ttam-metric {
-    background: rgba(255, 255, 255, .05);
-    border: 1px solid rgba(255, 255, 255, .07);
+    background: var(--ttam-surface);
+    border: 1px solid var(--ttam-line);
     border-radius: 7px; padding: 5px 6px;
 }
 #${PANEL_ID} .ttam-metric-label { font-size: 10px; opacity: .6; }
@@ -322,16 +334,16 @@
 #${PANEL_ID} .ttam-metric-value small { font-size: 10px; font-weight: 400; opacity: .65; margin-left: 2px; }
 #${PANEL_ID} .ttam-bar {
     height: 4px; border-radius: 3px; overflow: hidden;
-    background: rgba(255, 255, 255, .1); margin: 2px 0 6px;
+    background: var(--ttam-surface); margin: 2px 0 6px;
 }
 #${PANEL_ID} .ttam-bar-fill {
     height: 100%; width: 0%;
-    background: linear-gradient(90deg, #4c8dff, #6fd39f);
-    transition: width .25s ease;
+    background: var(--ttam-accent);
+    transition: width .2s ease;
 }
 #${PANEL_ID} .ttam-totals {
     font-size: 11px; opacity: .78; padding-top: 4px;
-    border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, .14));
+    border-top: 1px dashed var(--ttam-line);
     font-variant-numeric: tabular-nums;
 }
 #${PANEL_ID} .ttam-totals b { font-weight: 600; opacity: 1; }
@@ -345,14 +357,14 @@
     padding: 4px 6px; border-radius: 6px;
     cursor: pointer; border: 1px solid transparent;
 }
-#${PANEL_ID} .ttam-item:hover { background: rgba(255, 255, 255, .08); }
+#${PANEL_ID} .ttam-item:hover { background: var(--ttam-surface); }
 #${PANEL_ID} .ttam-item.is-selected {
-    background: rgba(76, 141, 255, .16);
-    border-color: rgba(76, 141, 255, .45);
+    background: var(--ttam-accent-soft);
+    border-color: var(--ttam-accent-line);
 }
 #${PANEL_ID} .ttam-item-mark { flex: 0 0 auto; font-weight: 700; }
-#${PANEL_ID} .ttam-item-mark.is-ok { color: #6fd39f; }
-#${PANEL_ID} .ttam-item-mark.is-fail { color: #ff8589; }
+#${PANEL_ID} .ttam-item-mark.is-ok { color: var(--ttam-ok); }
+#${PANEL_ID} .ttam-item-mark.is-fail { color: var(--ttam-fail); }
 #${PANEL_ID} .ttam-item-time { flex: 0 0 auto; opacity: .55; font-size: 11px; }
 #${PANEL_ID} .ttam-item-tail { margin-left: auto; opacity: .45; font-size: 10px; }
 #${PANEL_ID} .ttam-empty { opacity: .55; font-size: 11px; padding: 8px 2px; }
@@ -360,24 +372,24 @@
     display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
 }
 #${PANEL_ID} .ttam-back {
-    border: 0; background: rgba(255, 255, 255, .08); color: inherit; cursor: pointer;
+    border: 0; background: var(--ttam-surface); color: inherit; cursor: pointer;
     font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 5px; opacity: .85;
 }
-#${PANEL_ID} .ttam-back:hover { opacity: 1; background: rgba(255, 255, 255, .16); }
+#${PANEL_ID} .ttam-back:hover { opacity: 1; background: var(--ttam-line); }
 #${PANEL_ID} .ttam-detail-title { font-size: 11px; opacity: .6; margin-left: auto; }
 #${PANEL_ID} .ttam-facts {
     margin-top: 8px; padding-top: 6px;
-    border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, .14));
+    border-top: 1px dashed var(--ttam-line);
     font-size: 11px; font-variant-numeric: tabular-nums;
 }
 #${PANEL_ID} .ttam-fact { display: flex; gap: 8px; padding: 1px 0; }
 #${PANEL_ID} .ttam-fact-key { opacity: .55; flex: 0 0 62px; }
 #${PANEL_ID} .ttam-fact-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#${PANEL_ID} .ttam-fact-value.ttam-fail { color: #ff8589; white-space: normal; word-break: break-word; }
+#${PANEL_ID} .ttam-fact-value.ttam-fail { color: var(--ttam-fail); white-space: normal; word-break: break-word; }
 #${PANEL_ID} .ttam-foot {
     display: flex; align-items: center; gap: 8px;
     margin-top: 8px; padding-top: 6px;
-    border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, .12));
+    border-top: 1px solid var(--ttam-line);
     font-size: 10px; opacity: .62;
 }
 #${PANEL_ID} .ttam-link {
